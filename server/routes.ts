@@ -389,21 +389,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cart routes
-  app.get("/api/cart", isAuthenticated, async (req, res) => {
+  app.get("/api/cart", async (req, res) => {
     try {
-      const cartItems = await storage.getUserCartWithProducts(req.user.id);
-      res.json(cartItems);
+      if (req.isAuthenticated()) {
+        // Authenticated user - use userId
+        const cartItems = await storage.getUserCartWithProducts(req.user.id);
+        return res.json(cartItems);
+      } else if (req.session.id) {
+        // Non-authenticated user - use sessionId
+        const cartItems = await storage.getUserCartWithProducts(undefined, req.session.id);
+        return res.json(cartItems);
+      } else {
+        // No session or authentication
+        return res.json([]);
+      }
     } catch (error) {
       res.status(500).json({ message: "Error fetching cart" });
     }
   });
 
-  app.post("/api/cart", isAuthenticated, async (req, res) => {
+  app.post("/api/cart", async (req, res) => {
     try {
-      const cartItemData = insertCartItemSchema.parse({
-        ...req.body,
-        userId: req.user.id
-      });
+      let cartItemData;
+      
+      if (req.isAuthenticated()) {
+        // Authenticated user
+        cartItemData = insertCartItemSchema.parse({
+          ...req.body,
+          userId: req.user.id
+        });
+      } else if (req.session.id) {
+        // Non-authenticated user with session
+        cartItemData = insertCartItemSchema.parse({
+          ...req.body,
+          sessionId: req.session.id
+        });
+      } else {
+        return res.status(400).json({ message: "Session not available" });
+      }
       
       // Check if product exists and is in stock
       const product = await storage.getProduct(cartItemData.productId);
@@ -426,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/cart/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/cart/:id", async (req, res) => {
     try {
       const cartItemId = parseInt(req.params.id);
       const { quantity } = req.body;
@@ -441,15 +464,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cart item not found" });
       }
       
+      // Verify that the user has permission to update this cart item
+      if (req.isAuthenticated() && updatedCartItem.userId && updatedCartItem.userId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      if (!req.isAuthenticated() && updatedCartItem.sessionId && updatedCartItem.sessionId !== req.session.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
       res.json(updatedCartItem);
     } catch (error) {
       res.status(500).json({ message: "Error updating cart" });
     }
   });
 
-  app.delete("/api/cart/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/cart/:id", async (req, res) => {
     try {
       const cartItemId = parseInt(req.params.id);
+      
+      // Get the cart item to verify ownership
+      const cartItems = req.isAuthenticated() 
+        ? await storage.getUserCart(req.user.id)
+        : await storage.getUserCart(undefined, req.session.id);
+        
+      const cartItem = cartItems.find(item => item.id === cartItemId);
+      
+      if (!cartItem) {
+        return res.status(404).json({ message: "Cart item not found" });
+      }
+      
       const success = await storage.removeFromCart(cartItemId);
       
       if (!success) {
@@ -462,9 +506,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/cart", isAuthenticated, async (req, res) => {
+  app.delete("/api/cart", async (req, res) => {
     try {
-      await storage.clearCart(req.user.id);
+      if (req.isAuthenticated()) {
+        await storage.clearCart(req.user.id);
+      } else if (req.session.id) {
+        await storage.clearCart(undefined, req.session.id);
+      } else {
+        return res.status(400).json({ message: "No cart to clear" });
+      }
+      
       res.json({ message: "Cart cleared" });
     } catch (error) {
       res.status(500).json({ message: "Error clearing cart" });

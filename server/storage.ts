@@ -609,7 +609,17 @@ export class MemStorage implements IStorage {
   async addToCart(insertCartItem: InsertCartItem): Promise<CartItem> {
     // Check if the product already exists in the cart
     const existingCartItem = Array.from(this.cartItems.values()).find(
-      (item) => item.userId === insertCartItem.userId && item.productId === insertCartItem.productId,
+      (item) => {
+        // Match by userId if available
+        if (insertCartItem.userId && item.userId === insertCartItem.userId && item.productId === insertCartItem.productId) {
+          return true;
+        }
+        // Match by sessionId if available
+        if (insertCartItem.sessionId && item.sessionId === insertCartItem.sessionId && item.productId === insertCartItem.productId) {
+          return true;
+        }
+        return false;
+      }
     );
 
     if (existingCartItem) {
@@ -637,8 +647,8 @@ export class MemStorage implements IStorage {
     return this.cartItems.delete(id);
   }
 
-  async clearCart(userId: number): Promise<boolean> {
-    const cartItems = await this.getUserCart(userId);
+  async clearCart(userId?: number, sessionId?: string): Promise<boolean> {
+    const cartItems = await this.getUserCart(userId, sessionId);
     cartItems.forEach(item => this.cartItems.delete(item.id));
     return true;
   }

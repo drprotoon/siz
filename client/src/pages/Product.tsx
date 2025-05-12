@@ -61,19 +61,11 @@ export default function Product() {
       });
     },
     onError: (error) => {
-      if (!isAuthenticated) {
-        toast({
-          title: "Authentication required",
-          description: "Please log in to add items to your cart.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "Could not add item to cart.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Error",
+        description: error.message || "Could not add item to cart.",
+        variant: "destructive",
+      });
     },
   });
 

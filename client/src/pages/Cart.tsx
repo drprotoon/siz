@@ -27,10 +27,9 @@ export default function Cart() {
     queryKey: ["/api/auth/me"],
   });
 
-  // Fetch cart items
+  // Fetch cart items (now works for both logged in and guest users)
   const { data: cartItems, isLoading, isError } = useQuery({
     queryKey: ["/api/cart"],
-    enabled: !!authData?.user,
   });
 
   // Update cart item quantity mutation
