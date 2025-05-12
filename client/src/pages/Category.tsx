@@ -132,10 +132,10 @@ export default function Category() {
               slug={product.slug}
               price={product.price}
               compareAtPrice={product.compareAtPrice}
-              categoryName={product.category.name}
+              categoryName={product.category?.name || "Uncategorized"}
               rating={product.rating}
-              reviewCount={product.reviewCount}
-              mainImage={product.images[0]}
+              reviewCount={product.reviewCount || 0}
+              mainImage={product.images?.[0] || "https://placehold.co/400x400?text=No+Image"}
               bestSeller={product.bestSeller}
               newArrival={product.newArrival}
             />

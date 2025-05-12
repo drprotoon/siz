@@ -577,14 +577,24 @@ export class MemStorage implements IStorage {
   }
 
   // Cart
-  async getUserCart(userId: number): Promise<CartItem[]> {
-    return Array.from(this.cartItems.values()).filter(
-      (item) => item.userId === userId,
-    );
+  async getUserCart(userId?: number, sessionId?: string): Promise<CartItem[]> {
+    if (!userId && !sessionId) {
+      return [];
+    }
+    
+    return Array.from(this.cartItems.values()).filter((item) => {
+      if (userId && item.userId === userId) {
+        return true;
+      }
+      if (sessionId && item.sessionId === sessionId) {
+        return true;
+      }
+      return false;
+    });
   }
 
-  async getUserCartWithProducts(userId: number): Promise<(CartItem & { product: Product })[]> {
-    const cartItems = await this.getUserCart(userId);
+  async getUserCartWithProducts(userId?: number, sessionId?: string): Promise<(CartItem & { product: Product })[]> {
+    const cartItems = await this.getUserCart(userId, sessionId);
     return Promise.all(
       cartItems.map(async (item) => {
         const product = await this.getProduct(item.productId);

@@ -112,14 +112,18 @@ export const insertReviewSchema = createInsertSchema(reviews)
 // Cart schema
 export const cartItems = pgTable("cart_items", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: integer("user_id"),
+  sessionId: text("session_id"),
   productId: integer("product_id").notNull(),
   quantity: integer("quantity").notNull(),
   createdAt: timestamp("created_at").defaultNow()
 });
 
 export const insertCartItemSchema = createInsertSchema(cartItems)
-  .omit({ id: true, createdAt: true });
+  .omit({ id: true, createdAt: true })
+  .refine(data => data.userId !== undefined || data.sessionId !== undefined, {
+    message: "Either userId or sessionId must be provided"
+  });
 
 // Type definitions
 export type User = typeof users.$inferSelect;
