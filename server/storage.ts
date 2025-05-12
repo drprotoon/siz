@@ -664,23 +664,23 @@ export class MemStorage implements IStorage {
     // Different options based on weight and distance
     const options: FreightOption[] = [
       {
-        name: "Standard Shipping",
+        name: "Econômico",
         price: basePrice + 12.90,
-        estimatedDays: "5-7 days"
+        estimatedDays: "5-7 dias úteis"
       },
       {
-        name: "Express Shipping",
+        name: "Padrão",
         price: basePrice + 24.90,
-        estimatedDays: "2-3 days"
+        estimatedDays: "2-3 dias úteis"
       }
     ];
 
     // Add overnight option for smaller items
     if (weight < 500) {
       options.push({
-        name: "Overnight Shipping",
+        name: "Expresso",
         price: basePrice + 39.90,
-        estimatedDays: "1 day"
+        estimatedDays: "1 dia útil"
       });
     }
 

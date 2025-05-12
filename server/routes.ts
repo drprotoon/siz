@@ -696,6 +696,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Freight calculation
+  app.post("/api/freight/calculate", async (req, res) => {
+    try {
+      const { postalCode, weight } = req.body;
+      
+      if (!postalCode || typeof postalCode !== "string") {
+        return res.status(400).json({ message: "Invalid postal code" });
+      }
+      
+      if (!weight || typeof weight !== "number" || weight <= 0) {
+        return res.status(400).json({ message: "Invalid weight" });
+      }
+      
+      const freightOptions = await storage.calculateFreight(postalCode, weight);
+      res.json(freightOptions);
+    } catch (error) {
+      res.status(500).json({ message: "Error calculating freight" });
+    }
+  });
+
   // Admin dashboard stats
   app.get("/api/admin/stats", isAdmin, async (req, res) => {
     try {
