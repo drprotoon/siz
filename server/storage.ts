@@ -754,6 +754,7 @@ export const memStorage = new MemStorage();
 
 import { db } from "./db";
 import { eq, and, desc, asc, sql, like, isNull, or } from "drizzle-orm";
+import { users, categories, products, orders, orderItems, reviews, cartItems } from "../shared/schema";
 
 export class DatabaseStorage implements IStorage {
   // USERS

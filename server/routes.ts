@@ -259,6 +259,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Filtering by featured:", req.query.featured);
         options.featured = req.query.featured === "true";
       }
+
+      // Log before fetching products
+      try {
+        const productList = await storage.getProducts(options);
+        console.log(`Found ${productList.length} products`);
+        res.json(productList);
+        return;
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        throw error;
+      }
       
       // Only admins can see hidden products
       if (!req.isAuthenticated() || req.user.role !== "admin") {

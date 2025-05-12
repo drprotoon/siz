@@ -37,6 +37,15 @@ export default function Product() {
   if (product && product.images && product.images.length > 0 && !mainImage) {
     setMainImage(product.images[0]);
   }
+  
+  // Handle freight option selection
+  const handleFreightSelection = (option: { name: string; price: number }) => {
+    setSelectedShipping(option);
+    toast({
+      title: "Opção de frete selecionada",
+      description: `${option.name} - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(option.price)}`,
+    });
+  };
 
   // Fetch related products
   const { data: relatedProducts, isLoading: relatedLoading } = useQuery({
@@ -69,14 +78,24 @@ export default function Product() {
     },
   });
 
-  // Handle freight selection
-  const handleFreightSelection = (option: { name: string; price: number }) => {
-    setSelectedShipping(option);
-  };
-
   // Handle add to cart
   const handleAddToCart = () => {
     addToCartMutation.mutate();
+    
+    // Notify user about shipping if selected
+    if (selectedShipping) {
+      toast({
+        title: "Frete calculado",
+        description: `Frete (${selectedShipping.name}): ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedShipping.price)}`,
+        variant: "default",
+      });
+    } else {
+      toast({
+        title: "Dica",
+        description: "Calcule o frete antes de finalizar a compra.",
+        variant: "default",
+      });
+    }
   };
 
   // Handle add to wishlist

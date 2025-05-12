@@ -1,14 +1,39 @@
-import { apiRequest } from "./queryClient";
-
-interface FreightOption {
-  name: string;
-  price: number;
-  estimatedDays: string;
+/**
+ * Validate a postal code format
+ * 
+ * @param postalCode - The postal code to validate
+ * @returns boolean indicating if the format is valid
+ */
+export function isValidPostalCode(postalCode: string): boolean {
+  // Format without mask: 8 digits
+  if (/^\d{8}$/.test(postalCode)) {
+    return true;
+  }
+  
+  // Format with mask: 5 digits + hyphen + 3 digits
+  if (/^\d{5}-\d{3}$/.test(postalCode)) {
+    return true;
+  }
+  
+  return false;
 }
 
-interface FreightCalculationResponse {
-  options: FreightOption[];
-  postalCode: string;
+/**
+ * Format a postal code to the standard format (00000-000)
+ * 
+ * @param postalCode - The postal code to format
+ * @returns formatted postal code
+ */
+export function formatPostalCode(postalCode: string): string {
+  // Remove any non-digits
+  const digits = postalCode.replace(/\D/g, '');
+  
+  if (digits.length <= 5) {
+    return digits;
+  }
+  
+  // Insert hyphen after the first 5 digits
+  return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`;
 }
 
 /**
@@ -18,51 +43,18 @@ interface FreightCalculationResponse {
  * @param weight - The weight of the product(s) in grams
  * @returns FreightCalculationResponse with available shipping options
  */
-export async function calculateFreight(
-  postalCode: string,
-  weight: number
-): Promise<FreightCalculationResponse> {
-  try {
-    const response = await apiRequest(
-      "POST",
-      "/api/freight/calculate",
-      { postalCode, weight }
-    );
-    
-    return await response.json();
-  } catch (error) {
-    console.error("Error calculating freight:", error);
-    throw new Error("Failed to calculate shipping options. Please try again.");
-  }
-}
-
-/**
- * Validate a postal code format
- * 
- * @param postalCode - The postal code to validate
- * @returns boolean indicating if the format is valid
- */
-export function isValidPostalCode(postalCode: string): boolean {
-  // This is a simple validation for Brazil postal codes
-  // In a real app, you would use a more robust validation based on the country
-  const brazilPattern = /^[0-9]{5}-?[0-9]{3}$/;
-  return brazilPattern.test(postalCode);
-}
-
-/**
- * Format a postal code to the standard format
- * 
- * @param postalCode - The postal code to format
- * @returns formatted postal code
- */
-export function formatPostalCode(postalCode: string): string {
-  // Format Brazil postal code as 00000-000
-  // Remove any non-digits first
-  const digits = postalCode.replace(/\D/g, '');
+export async function calculateFreight(postalCode: string, weight: number) {
+  const response = await fetch('/api/freight/calculate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ postalCode, weight }),
+  });
   
-  if (digits.length === 8) {
-    return `${digits.substring(0, 5)}-${digits.substring(5)}`;
+  if (!response.ok) {
+    throw new Error('Falha ao calcular o frete');
   }
   
-  return postalCode;
+  return response.json();
 }
