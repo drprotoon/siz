@@ -16,6 +16,9 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-bold mb-4 font-heading">BeautyEssence</h3>
             <p className="text-gray-600 mb-4">Premium cosmetics for your unique beauty needs. Discover the best products for your skincare, makeup, and haircare routine.</p>
+            <div className="bg-blue-50 p-3 rounded-md border border-blue-100 text-sm text-gray-700 mb-4">
+              <p><strong>Compras sem complicação:</strong> Navegue, adicione ao carrinho e só faça login na hora de finalizar a compra.</p>
+            </div>
             <div className="flex space-x-4">
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary transition-colors">
                 <Facebook size={20} />

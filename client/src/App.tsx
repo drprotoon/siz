@@ -8,6 +8,8 @@ import Home from "@/pages/Home";
 import Product from "@/pages/Product";
 import Category from "@/pages/Category";
 import Cart from "@/pages/Cart";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import AdminDashboard from "@/pages/Admin/Dashboard";
 import AdminProducts from "@/pages/Admin/Products";
 import AdminOrders from "@/pages/Admin/Orders";
