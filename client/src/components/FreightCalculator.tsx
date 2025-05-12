@@ -9,17 +9,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Truck, AlertCircle } from 'lucide-react';
 import { formatPostalCode, isValidPostalCode } from '../lib/freightService';
-import { FreightOption } from '../shared/schema';
 
-interface FreightCalculatorProps {
-  productWeight: number;
-  onSelect?: (option: { name: string; price: number }) => void;
-}
-
+// Interfaces para o cálculo de frete
 interface FreightOption {
   name: string;
   price: number;
   estimatedDays: string;
+}
+
+interface FreightCalculationResponse {
+  options: FreightOption[];
+  postalCode: string;
+}
+
+interface FreightCalculatorProps {
+  productWeight: number;
+  onSelect?: (option: { name: string; price: number }) => void;
 }
 
 export default function FreightCalculator({ productWeight, onSelect }: FreightCalculatorProps) {
