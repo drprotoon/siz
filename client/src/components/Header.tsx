@@ -52,10 +52,9 @@ export default function Header() {
     queryKey: ["/api/categories"],
   });
 
-  // Cart items query
+  // Cart items query - now works for both logged in and guest users
   const { data: cartItems } = useQuery({
     queryKey: ["/api/cart"],
-    enabled: !!authData?.user,
   });
 
   // Logout mutation
@@ -227,14 +226,24 @@ export default function Header() {
             {!isAuthLoading && (
               <>
                 {!authData?.user ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-gray-600 hover:text-primary hover:bg-transparent"
-                    onClick={() => setIsLoginDialogOpen(true)}
-                  >
-                    <User size={24} />
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="ghost"
+                      className="text-gray-600 hover:text-primary hover:bg-transparent flex items-center"
+                      onClick={() => navigate("/login")}
+                    >
+                      <LogIn className="mr-1" size={18} />
+                      <span>Entrar</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-primary text-primary hover:bg-primary hover:text-white flex items-center"
+                      onClick={() => navigate("/register")}
+                    >
+                      <UserPlus className="mr-1" size={18} />
+                      <span>Cadastrar</span>
+                    </Button>
+                  </div>
                 ) : (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

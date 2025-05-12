@@ -29,6 +29,8 @@ function Router() {
       <Route path="/product/:slug" component={Product} />
       <Route path="/category/:slug" component={Category} />
       <Route path="/cart" component={Cart} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       
       {/* Admin routes - protected with isAdmin check */}
       <Route path="/admin">
