@@ -1,0 +1,447 @@
+import { db } from "../server/db";
+import { users, categories, products, reviews } from "../shared/schema";
+import * as bcrypt from "bcrypt";
+import { eq } from "drizzle-orm";
+
+async function seedDatabase() {
+  console.log("Iniciando o processo de seed do banco de dados...");
+
+  try {
+    // Limpar o banco de dados existente (opcional)
+    await db.delete(reviews);
+    await db.delete(products);
+    await db.delete(categories);
+    await db.delete(users);
+
+    console.log("Dados existentes removidos com sucesso");
+
+    // Criar usuários de teste
+    const hashedPassword = await bcrypt.hash("123456", 10);
+    
+    const [adminUser] = await db.insert(users).values({
+      username: "admin",
+      password: hashedPassword,
+      email: "admin@beautyessence.com",
+      role: "admin",
+      fullName: "Administrador",
+      address: "Av Paulista, 1000",
+      city: "São Paulo",
+      state: "SP",
+      postalCode: "01310-100",
+      country: "Brasil",
+      phone: "11987654321"
+    }).returning();
+    
+    const [testUser] = await db.insert(users).values({
+      username: "teste",
+      password: hashedPassword,
+      email: "teste@exemplo.com",
+      role: "customer",
+      fullName: "Usuário Teste",
+      address: "Rua Exemplo, 123",
+      city: "Rio de Janeiro",
+      state: "RJ",
+      postalCode: "22222-222",
+      country: "Brasil",
+      phone: "21987654321"
+    }).returning();
+    
+    console.log(`Usuários criados: ${adminUser.id}, ${testUser.id}`);
+
+    // Criar categorias
+    const categoryData = [
+      {
+        name: "Skincare",
+        slug: "skincare",
+        description: "Produtos para cuidados com a pele",
+        imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+      },
+      {
+        name: "Maquiagem",
+        slug: "maquiagem",
+        description: "Produtos de maquiagem para todos os tipos de pele",
+        imageUrl: "https://images.unsplash.com/photo-1596704017248-eb02655de3e4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+      },
+      {
+        name: "Cabelos",
+        slug: "cabelos",
+        description: "Produtos para cuidados com os cabelos",
+        imageUrl: "https://images.unsplash.com/photo-1576426863848-c21f53c60b19?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+      },
+      {
+        name: "Corpo & Banho",
+        slug: "corpo-banho",
+        description: "Produtos para cuidados com o corpo",
+        imageUrl: "https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1771&q=80"
+      },
+      {
+        name: "Fragrâncias",
+        slug: "fragrancias",
+        description: "Perfumes e fragrâncias para todos os gostos",
+        imageUrl: "https://images.unsplash.com/photo-1595425964072-537c688fe172?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+      }
+    ];
+    
+    const createdCategories = await db.insert(categories).values(categoryData).returning();
+    console.log(`Categorias criadas: ${createdCategories.length}`);
+    
+    // Mapear categorias por slug para referência mais fácil
+    const categoryMap = createdCategories.reduce((map, category) => {
+      map[category.slug] = category.id;
+      return map;
+    }, {} as Record<string, number>);
+
+    // Criar produtos
+    const productData = [
+      // Skincare
+      {
+        name: "Creme Hidratante Facial",
+        slug: "creme-hidratante-facial",
+        description: "Um creme hidratante rico que nutre profundamente a pele, deixando-a macia e radiante. Formulado com ácido hialurônico e vitaminas essenciais.",
+        price: "89.90",
+        compareAtPrice: "99.90",
+        sku: "SKN001",
+        weight: "150.00",
+        quantity: 50,
+        categoryId: categoryMap["skincare"],
+        images: ["https://images.unsplash.com/photo-1556228578-8c89e6adf883?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"],
+        ingredients: "Água, Glicerina, Ácido Hialurônico, Extrato de Aloe Vera, Vitamina E, Extrato de Camomila",
+        howToUse: "Aplique uma quantidade generosa em todo o rosto e pescoço após a limpeza, de manhã e à noite.",
+        visible: true,
+        featured: true,
+        newArrival: false,
+        bestSeller: true
+      },
+      {
+        name: "Sérum de Vitamina C",
+        slug: "serum-vitamina-c",
+        description: "Sérum potente que ilumina e uniformiza o tom da pele, reduzindo manchas escuras e linhas finas. Enriquecido com 15% de vitamina C estabilizada.",
+        price: "129.90",
+        compareAtPrice: "149.90",
+        sku: "SKN002",
+        weight: "30.00",
+        quantity: 35,
+        categoryId: categoryMap["skincare"],
+        images: ["https://images.unsplash.com/photo-1617993752826-ff4582b4b9d4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"],
+        ingredients: "Água, Ascorbato de Sódio, Ácido Ferúlico, Vitamina E, Extrato de Chá Verde, Ácido Hialurônico",
+        howToUse: "Aplique algumas gotas na pele limpa e seca antes do hidratante, preferencialmente pela manhã.",
+        visible: true,
+        featured: true,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Máscara Facial de Argila",
+        slug: "mascara-facial-argila",
+        description: "Máscara purificante que remove impurezas e excesso de oleosidade, minimizando a aparência dos poros e deixando a pele fresca e renovada.",
+        price: "69.90",
+        compareAtPrice: null,
+        sku: "SKN003",
+        weight: "100.00",
+        quantity: 40,
+        categoryId: categoryMap["skincare"],
+        images: ["https://images.unsplash.com/photo-1600213903598-25be92abde40?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1773&q=80"],
+        ingredients: "Argila Verde, Óleo de Tea Tree, Extrato de Pepino, Kaolin, Glicerina, Ácido Salicílico",
+        howToUse: "Aplique uma camada uniforme na pele limpa, evitando a área dos olhos. Deixe agir por 10-15 minutos e enxágue com água morna.",
+        visible: true,
+        featured: false,
+        newArrival: false,
+        bestSeller: false
+      },
+      
+      // Maquiagem
+      {
+        name: "Base de Longa Duração",
+        slug: "base-longa-duracao",
+        description: "Base de cobertura média a alta que dura até 24 horas, com acabamento mate e resistente à água. Disponível em 30 tons inclusivos.",
+        price: "119.90",
+        compareAtPrice: null,
+        sku: "MKP001",
+        weight: "30.00",
+        quantity: 60,
+        categoryId: categoryMap["maquiagem"],
+        images: ["https://images.unsplash.com/photo-1590156562745-5c67451bf4c9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1771&q=80"],
+        ingredients: "Água, Ciclopentasiloxano, Dimeticona, Óxidos de Ferro, Dióxido de Titânio, Extrato de Camomila",
+        howToUse: "Aplique pequenas quantidades no rosto e espalhe com uma esponja ou pincel para um acabamento uniforme.",
+        visible: true,
+        featured: true,
+        newArrival: false,
+        bestSeller: true
+      },
+      {
+        name: "Paleta de Sombras",
+        slug: "paleta-sombras",
+        description: "Paleta versátil com 16 cores altamente pigmentadas em acabamentos mate, acetinado e metálico. Perfeita para criar diversos estilos de maquiagem.",
+        price: "159.90",
+        compareAtPrice: "179.90",
+        sku: "MKP002",
+        weight: "120.00",
+        quantity: 25,
+        categoryId: categoryMap["maquiagem"],
+        images: ["https://images.unsplash.com/photo-1617897903246-719242758050?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"],
+        ingredients: "Talco, Mica, Óxidos de Ferro, Estearato de Zinco, Silicones, Parabenos",
+        howToUse: "Aplique com um pincel de sombra limpo, construindo a intensidade gradualmente. Use tons mais claros na pálpebra móvel e tons mais escuros na dobra.",
+        visible: true,
+        featured: true,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Batom Líquido Mate",
+        slug: "batom-liquido-mate",
+        description: "Batom líquido de longa duração com acabamento mate aveludado. Fórmula leve e confortável que não resseca os lábios.",
+        price: "79.90",
+        compareAtPrice: null,
+        sku: "MKP003",
+        weight: "5.00",
+        quantity: 45,
+        categoryId: categoryMap["maquiagem"],
+        images: ["https://images.unsplash.com/photo-1586495777744-4413f21062fa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1830&q=80"],
+        ingredients: "Dimeticona, Isododecano, Cera de Abelha, Óleo de Jojoba, Vitamina E, Pigmentos",
+        howToUse: "Aplique começando pelo centro dos lábios e espalhe para as bordas. Para maior precisão, contorne os lábios com um lápis antes de aplicar.",
+        visible: true,
+        featured: false,
+        newArrival: false,
+        bestSeller: true
+      },
+      
+      // Cabelos
+      {
+        name: "Shampoo Hidratante",
+        slug: "shampoo-hidratante",
+        description: "Shampoo nutritivo que limpa suavemente enquanto hidrata os fios, deixando os cabelos macios, brilhantes e fáceis de pentear.",
+        price: "69.90",
+        compareAtPrice: null,
+        sku: "CAB001",
+        weight: "300.00",
+        quantity: 70,
+        categoryId: categoryMap["cabelos"],
+        images: ["https://images.unsplash.com/photo-1626093961922-40ea7320fc10?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Óleo de Argan, Pantenol, Extrato de Aloe Vera",
+        howToUse: "Aplique no cabelo molhado, massageie suavemente e enxágue bem. Repita se necessário.",
+        visible: true,
+        featured: false,
+        newArrival: false,
+        bestSeller: true
+      },
+      {
+        name: "Máscara Reparadora",
+        slug: "mascara-reparadora",
+        description: "Tratamento intensivo que repara cabelos danificados, selando as cutículas e prevenindo o frizz. Ideal para cabelos quimicamente tratados.",
+        price: "89.90",
+        compareAtPrice: "99.90",
+        sku: "CAB002",
+        weight: "250.00",
+        quantity: 55,
+        categoryId: categoryMap["cabelos"],
+        images: ["https://images.unsplash.com/photo-1610705267928-1b9f2fa7f1c5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80"],
+        ingredients: "Água, Álcool Cetílico, Óleo de Coco, Queratina Hidrolisada, Proteínas da Seda, Manteiga de Karité",
+        howToUse: "Após lavar o cabelo, aplique uma quantidade generosa por todo o comprimento, concentrando-se nas pontas. Deixe agir por 5-10 minutos e enxágue bem.",
+        visible: true,
+        featured: true,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Óleo Capilar Multifuncional",
+        slug: "oleo-capilar-multifuncional",
+        description: "Óleo leve que nutre, dá brilho e protege os cabelos do calor sem pesar. Pode ser usado antes ou depois da modelagem.",
+        price: "79.90",
+        compareAtPrice: null,
+        sku: "CAB003",
+        weight: "100.00",
+        quantity: 40,
+        categoryId: categoryMap["cabelos"],
+        images: ["https://images.unsplash.com/photo-1662752375496-28f718bd96b9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1829&q=80"],
+        ingredients: "Ciclopentasiloxano, Dimeticona, Óleo de Argan, Óleo de Jojoba, Óleo de Coco, Vitamina E",
+        howToUse: "Aplique algumas gotas no cabelo úmido ou seco, concentrando-se nas pontas. Evite a raiz se tiver cabelo oleoso.",
+        visible: true,
+        featured: false,
+        newArrival: false,
+        bestSeller: false
+      },
+      
+      // Corpo & Banho
+      {
+        name: "Gel de Banho Relaxante",
+        slug: "gel-banho-relaxante",
+        description: "Gel de banho aromático que limpa suavemente enquanto relaxa corpo e mente com uma fragrância calmante de lavanda e camomila.",
+        price: "59.90",
+        compareAtPrice: null,
+        sku: "CRP001",
+        weight: "400.00",
+        quantity: 65,
+        categoryId: categoryMap["corpo-banho"],
+        images: ["https://images.unsplash.com/photo-1550309510-cf8c39a42dc0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Glicerina, Óleo Essencial de Lavanda, Extrato de Camomila",
+        howToUse: "Aplique no corpo molhado, massageie para criar espuma e enxágue bem.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Esfoliante Corporal",
+        slug: "esfoliante-corporal",
+        description: "Esfoliante que remove células mortas e renova a pele, deixando-a macia e pronta para absorver os benefícios de outros produtos.",
+        price: "79.90",
+        compareAtPrice: "89.90",
+        sku: "CRP002",
+        weight: "200.00",
+        quantity: 45,
+        categoryId: categoryMap["corpo-banho"],
+        images: ["https://images.unsplash.com/photo-1614859131177-3ed0523ae615?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"],
+        ingredients: "Açúcar, Óleo de Coco, Óleo de Amêndoas Doces, Manteiga de Karité, Óleo Essencial de Laranja, Vitamina E",
+        howToUse: "Aplique na pele úmida com movimentos circulares. Massageie suavemente e enxágue com água morna.",
+        visible: true,
+        featured: true,
+        newArrival: false,
+        bestSeller: true
+      },
+      {
+        name: "Loção Hidratante Corporal",
+        slug: "locao-hidratante-corporal",
+        description: "Loção leve que hidrata profundamente a pele sem sensação pegajosa. Absorção rápida e hidratação por até 48 horas.",
+        price: "69.90",
+        compareAtPrice: null,
+        sku: "CRP003",
+        weight: "300.00",
+        quantity: 55,
+        categoryId: categoryMap["corpo-banho"],
+        images: ["https://images.unsplash.com/photo-1631729371254-42c2892f0e6e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"],
+        ingredients: "Água, Glicerina, Manteiga de Karité, Óleo de Jojoba, Vitamina E, Extrato de Aloe Vera",
+        howToUse: "Aplique generosamente por todo o corpo após o banho ou quando necessário. Massageie até completa absorção.",
+        visible: true,
+        featured: false,
+        newArrival: false,
+        bestSeller: false
+      },
+      
+      // Fragrâncias
+      {
+        name: "Eau de Parfum Floral",
+        slug: "eau-de-parfum-floral",
+        description: "Fragrância sofisticada com notas de jasmim, rosa e baunilha. Elegante e feminina, ideal para uso diário ou ocasiões especiais.",
+        price: "199.90",
+        compareAtPrice: null,
+        sku: "FRG001",
+        weight: "50.00",
+        quantity: 30,
+        categoryId: categoryMap["fragrancias"],
+        images: ["https://images.unsplash.com/photo-1592914637125-10b313c2f8fc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80"],
+        ingredients: "Álcool, Água, Fragrância, Óleo de Jojoba",
+        howToUse: "Aplique nos pulsos, atrás das orelhas e no pescoço. Para maior duração, aplique após o banho quando a pele ainda está úmida.",
+        visible: true,
+        featured: true,
+        newArrival: false,
+        bestSeller: true
+      },
+      {
+        name: "Eau de Toilette Cítrico",
+        slug: "eau-de-toilette-citrico",
+        description: "Fragrância refrescante com notas de limão, bergamota e lavanda. Perfeita para o dia-a-dia e climas quentes.",
+        price: "149.90",
+        compareAtPrice: "169.90",
+        sku: "FRG002",
+        weight: "100.00",
+        quantity: 25,
+        categoryId: categoryMap["fragrancias"],
+        images: ["https://images.unsplash.com/photo-1615677197053-a8b34ddc0f78?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"],
+        ingredients: "Álcool, Água, Fragrância, Extrato de Citrus",
+        howToUse: "Aplique generosamente no corpo após o banho. Reaplicar ao longo do dia se necessário.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Body Mist Frutal",
+        slug: "body-mist-frutal",
+        description: "Névoa corporal leve com notas de pêssego, maçã e pera. Ideal para refrescar-se ao longo do dia e para climas quentes.",
+        price: "89.90",
+        compareAtPrice: null,
+        sku: "FRG003",
+        weight: "150.00",
+        quantity: 40,
+        categoryId: categoryMap["fragrancias"],
+        images: ["https://images.unsplash.com/photo-1622618991746-fe6004db3a47?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80"],
+        ingredients: "Água, Álcool, Fragrância, Glicerina",
+        howToUse: "Borrife generosamente por todo o corpo. Pode ser aplicado diretamente na pele ou nas roupas.",
+        visible: true,
+        featured: false,
+        newArrival: false,
+        bestSeller: false
+      }
+    ];
+    
+    const createdProducts = await db.insert(products).values(productData).returning();
+    console.log(`Produtos criados: ${createdProducts.length}`);
+    
+    // Adicionar avaliações aos produtos
+    const reviewsData = [
+      {
+        productId: createdProducts[0].id, // Creme Hidratante Facial
+        userId: testUser.id,
+        rating: 5,
+        title: "Excelente produto!",
+        comment: "Este creme é incrível! Minha pele nunca esteve tão hidratada. Recomendo muito!"
+      },
+      {
+        productId: createdProducts[0].id, // Creme Hidratante Facial
+        userId: testUser.id,
+        rating: 4,
+        title: "Muito bom",
+        comment: "Ótimo produto, mas achei o preço um pouco alto. De qualquer forma, vale a pena pelo resultado."
+      },
+      {
+        productId: createdProducts[1].id, // Sérum de Vitamina C
+        userId: testUser.id,
+        rating: 5,
+        title: "O melhor sérum que já usei",
+        comment: "Estou usando há 2 semanas e já notei uma diferença significativa na minha pele. As manchas estão mais claras e a pele mais luminosa."
+      },
+      {
+        productId: createdProducts[3].id, // Base de Longa Duração
+        userId: testUser.id,
+        rating: 5,
+        title: "Base perfeita",
+        comment: "Cobertura incrível e realmente dura o dia todo. Não transfere para as roupas e tem acabamento natural."
+      },
+      {
+        productId: createdProducts[7].id, // Esfoliante Corporal
+        userId: testUser.id,
+        rating: 4,
+        title: "Bom esfoliante",
+        comment: "Deixa a pele muito macia, mas o cheiro poderia ser mais agradável."
+      }
+    ];
+    
+    const createdReviews = await db.insert(reviews).values(reviewsData).returning();
+    console.log(`Avaliações criadas: ${createdReviews.length}`);
+    
+    // Atualizar as médias de avaliações dos produtos
+    for (const product of createdProducts) {
+      const productReviews = await db.select().from(reviews).where(eq(reviews.productId, product.id));
+      
+      if (productReviews.length > 0) {
+        const totalRating = productReviews.reduce((sum, review) => sum + review.rating, 0);
+        const avgRating = (totalRating / productReviews.length).toFixed(1);
+        
+        await db.update(products)
+          .set({
+            rating: avgRating,
+            reviewCount: productReviews.length
+          })
+          .where(eq(products.id, product.id));
+        
+        console.log(`Atualizada a média de avaliações do produto ${product.id}: ${avgRating} (${productReviews.length} avaliações)`);
+      }
+    }
+
+    console.log("Database seeded successfully!");
+  } catch (error) {
+    console.error("Erro ao executar o seed:", error);
+  }
+}
+
+seedDatabase().catch(console.error);
