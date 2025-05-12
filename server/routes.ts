@@ -244,9 +244,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Product routes
   app.get("/api/products", async (req, res) => {
     try {
+      console.log("Fetching products...");
       const options: { categoryId?: number, featured?: boolean, visible?: boolean } = {};
       
       if (req.query.category) {
+        console.log("Filtering by category:", req.query.category);
         const category = await storage.getCategoryBySlug(req.query.category as string);
         if (category) {
           options.categoryId = category.id;
@@ -254,6 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (req.query.featured) {
+        console.log("Filtering by featured:", req.query.featured);
         options.featured = req.query.featured === "true";
       }
       
