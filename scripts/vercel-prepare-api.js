@@ -223,6 +223,44 @@ if (fs.existsSync(serverJsPath)) {
   console.error('ERRO: Arquivo api/server.js não encontrado!');
 }
 
+// Copiar o arquivo package.json para dist/api
+const packageJsonPath = path.join(apiDir, 'package.json');
+if (fs.existsSync(packageJsonPath)) {
+  fs.copyFileSync(packageJsonPath, path.join(distApiDir, 'package.json'));
+  console.log('Arquivo api/package.json copiado para dist/api/package.json');
+} else {
+  console.error('ERRO: Arquivo api/package.json não encontrado!');
+
+  // Criar um package.json básico
+  const basicPackageJson = {
+    "name": "siz-api",
+    "version": "1.0.0",
+    "type": "module",
+    "engines": {
+      "node": ">=18.x"
+    },
+    "dependencies": {
+      "express": "^4.18.2",
+      "cors": "^2.8.5",
+      "express-session": "^1.17.3",
+      "passport": "^0.6.0",
+      "passport-local": "^1.0.0",
+      "bcrypt": "^5.1.1",
+      "memorystore": "^1.6.7",
+      "dotenv": "^16.3.1",
+      "pg": "^8.11.3",
+      "drizzle-orm": "^0.28.6",
+      "@supabase/supabase-js": "^2.38.4"
+    }
+  };
+
+  fs.writeFileSync(
+    path.join(distApiDir, 'package.json'),
+    JSON.stringify(basicPackageJson, null, 2)
+  );
+  console.log('Arquivo package.json básico criado em dist/api/package.json');
+}
+
 // Copiar o arquivo 404.js para dist/api se existir
 const api404Path = path.join(apiDir, '404.js');
 if (fs.existsSync(api404Path)) {

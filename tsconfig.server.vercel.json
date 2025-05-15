@@ -18,7 +18,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noImplicitAny": false,
-    "typeRoots": ["./node_modules/@types", "./types.d.ts"]
+    "typeRoots": ["./node_modules/@types", "./types.d.ts"],
+    "types": ["node"]
   },
   "include": ["server/**/*", "shared/**/*", "api/**/*", "types.d.ts"],
   "exclude": ["node_modules", "dist"],

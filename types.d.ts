@@ -9,9 +9,27 @@ declare module 'path' {
   export * from 'node:path';
 }
 
+declare module 'url' {
+  export * from 'node:url';
+}
+
 declare module 'uuid' {
   export function v4(): string;
 }
+
+// Declarações para módulos de terceiros
+declare module 'cors';
+declare module 'express';
+declare module 'express-session';
+declare module 'passport';
+declare module 'passport-local';
+declare module 'bcrypt';
+declare module 'memorystore';
+declare module 'dotenv';
+declare module 'pg';
+declare module 'drizzle-orm';
+declare module 'drizzle-orm/node-postgres';
+declare module '@supabase/supabase-js';
 
 // Tipos para o Supabase Storage
 interface StorageItem {

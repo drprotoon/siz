@@ -3,7 +3,7 @@
   "framework": null,
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/public",
-  "installCommand": "npm install",
+  "installCommand": "npm install --production=false",
   "headers": [
     {
       "source": "/api/(.*)",
@@ -27,7 +27,10 @@
   "builds": [
     {
       "src": "api/server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["api/**", "server/**", "shared/**", "types.d.ts"]
+      }
     },
     {
       "src": "dist/public/**",
