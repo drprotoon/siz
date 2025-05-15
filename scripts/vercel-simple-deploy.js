@@ -46,11 +46,11 @@ function runCommand(command, description) {
 
 // Instalar dependências necessárias
 console.log('Instalando dependências essenciais...');
-runCommand('npm install --no-save vite @vitejs/plugin-react', 'instalação de dependências do Vite');
+runCommand('npm install --no-save vite @vitejs/plugin-react react react-dom @tanstack/react-query wouter', 'instalação de dependências do Vite e React');
 
-// Construir o frontend com Vite
+// Construir o frontend com Vite usando a configuração padrão
 console.log('Construindo o frontend...');
-runCommand('npx vite build --config vite.vercel.config.js', 'build do frontend');
+runCommand('npx vite build --config vite.config.cjs', 'build do frontend');
 
 // Criar um arquivo server.js simplificado para a API
 console.log('Criando arquivo server.js simplificado...');
@@ -172,33 +172,29 @@ const staticPackageJson = {
 fs.writeFileSync(path.join(publicDir, 'package.json'), JSON.stringify(staticPackageJson, null, 2));
 console.log('✅ Arquivo package.json para diretório public criado com sucesso');
 
-// Criar um arquivo index.html básico
-console.log('Criando arquivo index.html básico...');
-const indexHtml = `<!DOCTYPE html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>SIZ Cosméticos - Beleza e Cuidados Pessoais</title>
-    <meta name="description" content="Loja de cosméticos e produtos de beleza premium. Encontre perfumes, maquiagem, skincare e muito mais." />
-    <link rel="icon" href="/favicon.ico" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/assets/index.js"></script>
-  </body>
-</html>`;
-
-// Verificar se existe um arquivo index.html na raiz do projeto
-const rootIndexPath = path.join(rootDir, 'index.html');
-if (fs.existsSync(rootIndexPath)) {
-  // Copiar o arquivo index.html da raiz para o diretório public
-  fs.copyFileSync(rootIndexPath, path.join(publicDir, 'index.html'));
-  console.log('✅ Arquivo index.html copiado da raiz para o diretório public');
+// Verificar se o build gerou o arquivo index.html
+console.log('Verificando se o arquivo index.html foi gerado pelo build...');
+if (fs.existsSync(path.join(publicDir, 'index.html'))) {
+  console.log('✅ Arquivo index.html gerado pelo build encontrado');
 } else {
-  // Criar um novo arquivo index.html no diretório public
-  fs.writeFileSync(path.join(publicDir, 'index.html'), indexHtml);
-  console.log('✅ Arquivo index.html criado com sucesso');
+  console.log('⚠️ Arquivo index.html não encontrado no diretório public');
+
+  // Copiar o arquivo index.html do diretório client para o diretório public
+  if (fs.existsSync(path.join(rootDir, 'client', 'index.html'))) {
+    fs.copyFileSync(path.join(rootDir, 'client', 'index.html'), path.join(publicDir, 'index.html'));
+    console.log('✅ Arquivo index.html copiado do diretório client para o diretório public');
+
+    // Atualizar o script para apontar para o arquivo main.js
+    const indexHtml = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
+    const updatedIndexHtml = indexHtml.replace(
+      '<script type="module" src="/src/main.tsx"></script>',
+      '<script type="module" src="/assets/main.js"></script>'
+    );
+    fs.writeFileSync(path.join(publicDir, 'index.html'), updatedIndexHtml);
+    console.log('✅ Arquivo index.html atualizado para apontar para o arquivo main.js');
+  } else {
+    console.error('❌ Arquivo index.html não encontrado no diretório client');
+  }
 }
 
 // Criar um arquivo vercel.json simplificado
@@ -213,7 +209,9 @@ const vercelJson = {
   ],
   "routes": [
     { "handle": "filesystem" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
     { "src": "/api/(.*)", "dest": "/api/server.js" },
+    { "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))", "dest": "/$1" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "builds": [
