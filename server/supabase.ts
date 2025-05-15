@@ -7,11 +7,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Carrega variáveis de ambiente apenas em desenvolvimento
-// Em produção, as variáveis de ambiente devem ser configuradas no ambiente
-if (process.env.NODE_ENV !== 'production') {
-  dotenv.config({ path: path.resolve(__dirname, '../.env') });
-}
+// Carrega variáveis de ambiente
+// Em produção, as variáveis de ambiente são configuradas no ambiente do Vercel
+// Em desenvolvimento, carregamos do arquivo .env
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Configuração do Supabase
 const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -39,7 +38,15 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
-console.log(`Supabase client initialized: ${supabase ? 'Yes' : 'No'}`);
+// Log de inicialização
+if (process.env.NODE_ENV === 'production') {
+  console.log(`[PROD] Supabase client initialized: ${supabase ? 'Yes' : 'No'}`);
+  if (supabase) {
+    console.log(`[PROD] Using Supabase URL: ${supabaseUrl.substring(0, 15)}...`);
+  }
+} else {
+  console.log(`Supabase client initialized: ${supabase ? 'Yes' : 'No'}`);
+}
 
 /**
  * Verifica a conexão com o Supabase

@@ -74,21 +74,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Session setup
   const MemoryStoreSession = MemoryStore(session);
-  app.use(session({
+
+  // Configuração de sessão
+  const sessionConfig = {
     secret: process.env.SESSION_SECRET || "beauty-essence-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      // Only use secure cookies in production with HTTPS
+      // Only use secure cookies in production with HTTPS, unless explicitly disabled
       secure: process.env.NODE_ENV === "production" && process.env.DISABLE_SECURE_COOKIE !== "true",
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax'
+      sameSite: process.env.NODE_ENV === "production" ? 'none' as const : 'lax' as const
     },
     store: new MemoryStoreSession({
       checkPeriod: 86400000 // prune expired entries every 24h
     })
-  }));
+  };
+
+  // Log da configuração de sessão
+  console.log(`Session configuration: secure=${sessionConfig.cookie.secure}, sameSite=${sessionConfig.cookie.sameSite}`);
+
+  app.use(session(sessionConfig));
 
   // Passport configuration
   app.use(passport.initialize());
@@ -163,27 +170,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Authentication routes
   app.post("/api/auth/login", (req, res, next) => {
+    console.log("Login attempt:", req.body.username);
+
     passport.authenticate("local", async (err: Error, user: User, info: { message: string }) => {
       if (err) {
+        console.error("Login error:", err);
         return next(err);
       }
       if (!user) {
+        console.log("Login failed for user:", req.body.username);
         return res.status(401).json({ message: info.message });
       }
 
       // Salvar o sessionId atual antes do login
       const sessionId = req.session.id;
+      console.log("Session ID before login:", sessionId);
 
       req.logIn(user, async (err) => {
         if (err) {
+          console.error("Login session error:", err);
           return next(err);
         }
 
         try {
+          console.log("User authenticated successfully:", user.username);
+
           // Se havia um sessionId válido, mesclar o carrinho da sessão com o carrinho do usuário
           if (sessionId) {
             // Obter itens do carrinho da sessão
             const sessionCartItems = await storage.getUserCart(undefined, sessionId);
+            console.log(`Found ${sessionCartItems.length} items in session cart`);
 
             // Se houver itens no carrinho da sessão, adicioná-los ao carrinho do usuário
             if (sessionCartItems.length > 0) {
@@ -204,11 +220,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
-          return res.json({ message: "Login successful", user: { id: user.id, username: user.username, role: user.role } });
+          // Incluir informações adicionais do usuário na resposta
+          const userResponse = {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            // Adicionar timestamp para evitar problemas de cache
+            timestamp: new Date().getTime()
+          };
+
+          console.log("Sending login response:", { message: "Login successful", user: userResponse });
+          return res.json({ message: "Login successful", user: userResponse });
         } catch (error) {
           console.error("Erro ao mesclar carrinhos:", error);
           // Mesmo com erro na mesclagem, retornar sucesso no login
-          return res.json({ message: "Login successful", user: { id: user.id, username: user.username, role: user.role } });
+          return res.json({
+            message: "Login successful",
+            user: {
+              id: user.id,
+              username: user.username,
+              role: user.role,
+              timestamp: new Date().getTime()
+            }
+          });
         }
       });
     })(req, res, next);
@@ -221,9 +255,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", (req, res) => {
-    if (req.isAuthenticated()) {
-      res.json({ user: req.user });
+    console.log("Auth check request received");
+    console.log("Is authenticated:", req.isAuthenticated());
+
+    if (req.isAuthenticated() && req.user) {
+      // Adicionar timestamp para evitar problemas de cache
+      const userResponse = {
+        ...req.user,
+        timestamp: new Date().getTime()
+      };
+
+      console.log("Sending authenticated user:", userResponse);
+      res.json({ user: userResponse });
     } else {
+      console.log("User not authenticated");
       res.status(401).json({ message: "Not authenticated" });
     }
   });

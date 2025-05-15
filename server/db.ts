@@ -24,5 +24,11 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+// Log da conexão com o banco de dados
+console.log(`Database connection initialized with ${process.env.NODE_ENV === 'production' ? 'SSL enabled' : 'SSL disabled'}`);
+if (process.env.NODE_ENV === 'production') {
+  console.log(`[PROD] Using DATABASE_URL: ${process.env.DATABASE_URL?.substring(0, 25)}...`);
+}
+
 // Create the drizzle client
 export const db = drizzle(pool, { schema });
