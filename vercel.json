@@ -29,7 +29,8 @@
       "src": "api/server.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["api/**", "server/**", "shared/**", "types.d.ts"]
+        "includeFiles": ["api/**", "server/**", "shared/**", "types.d.ts"],
+        "nodeVersion": "18.x"
       }
     },
     {

@@ -7,7 +7,7 @@
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "vite build && tsc -p tsconfig.server.json && node scripts/build-server.js",
     "postbuild": "node scripts/ensure-css.js && node scripts/copy-index-html.js",
-    "vercel-build": "npm install typescript@4.9.5 ts-node tailwindcss autoprefixer postcss @tailwindcss/typography tailwindcss-animate drizzle-orm pg dotenv @supabase/supabase-js bcrypt cors express express-session passport passport-local memorystore fast-xml-parser axios multer uuid fs-extra @types/bcrypt @types/pg @types/node @types/fs-extra @types/express @types/cors @types/passport @types/multer @types/uuid && node scripts/setup-vercel-config.js && vite build --config vite.config.cjs && node scripts/vercel-prepare-api.js && node scripts/ensure-vercel-files.js",
+    "vercel-build": "npm install typescript@4.9.5 ts-node tailwindcss autoprefixer postcss @tailwindcss/typography tailwindcss-animate drizzle-orm pg dotenv @supabase/supabase-js bcrypt cors express express-session passport passport-local memorystore fast-xml-parser axios multer uuid fs-extra @types/bcrypt @types/pg @types/node @types/fs-extra @types/express @types/cors @types/passport @types/multer @types/uuid && node scripts/setup-vercel-config.js && vite build --config vite.config.cjs && tsc -p tsconfig.server.vercel.json && node scripts/vercel-prepare-api.js && node scripts/ensure-vercel-files.js",
     "start": "NODE_ENV=production node dist/server/index.js",
     "check": "tsc",
     "deploy": "node scripts/force-deploy.js",
@@ -114,7 +114,9 @@
     "@types/ws": "^8.5.13",
     "drizzle-kit": "^0.30.4",
     "tsx": "^4.19.1",
-    "typescript": "5.6.3"
+    "typescript": "5.6.3",
+    "drizzle-orm": "^0.39.3",
+    "bcrypt": "^6.0.0"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
