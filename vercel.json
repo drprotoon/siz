@@ -15,21 +15,13 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/health", "destination": "/api/health.js" },
-    { "source": "/api/auth/(.*)", "destination": "/api/auth.js" },
-    { "source": "/api/products/(.*)", "destination": "/api/products.js" },
-    { "source": "/api/categories/(.*)", "destination": "/api/categories.js" },
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/api/(.*)", "destination": "/api/server.js" },
     { "source": "/(assets|favicon.ico)(.*)", "destination": "/$1$2" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "routes": [
     { "handle": "filesystem" },
-    { "src": "/api/health", "dest": "/api/health.js" },
-    { "src": "/api/auth/(.*)", "dest": "/api/auth.js" },
-    { "src": "/api/products/(.*)", "dest": "/api/products.js" },
-    { "src": "/api/categories/(.*)", "dest": "/api/categories.js" },
-    { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "src": "/api/(.*)", "dest": "/api/server.js" },
     { "src": "^/assets/(.*)", "dest": "/assets/$1" },
     { "src": "^/favicon.ico", "dest": "/favicon.ico" },
     { "src": "/(.*)", "dest": "/index.html" }
@@ -37,6 +29,17 @@
   "env": {
     "NODE_ENV": "production",
     "VERCEL": "1",
-    "DISABLE_SECURE_COOKIE": "true"
-  }
+    "DISABLE_SECURE_COOKIE": "true",
+    "TS_NODE_TRANSPILE_ONLY": "true"
+  },
+  "builds": [
+    {
+      "src": "api/server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "dist/public/**",
+      "use": "@vercel/static"
+    }
+  ]
 }

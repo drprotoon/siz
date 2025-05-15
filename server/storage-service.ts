@@ -421,7 +421,7 @@ export async function listBucketFolders(
               console.log(`Storage Service: Found existing folder '${knownFolder}' that wasn't in the root listing`);
 
               // Verifica se tem subpastas
-              const hasSubfolders = folderContents.some(item =>
+              const hasSubfolders = folderContents.some((item: any) =>
                 (item.id && item.id.endsWith('/')) ||
                 item.metadata?.mimetype === 'folder' ||
                 !item.metadata

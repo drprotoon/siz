@@ -34,6 +34,19 @@ try {
   });
 }
 
+// Compilar os arquivos TypeScript do servidor para JavaScript
+try {
+  console.log('Compilando arquivos TypeScript do servidor...');
+  execSync('npx tsc -p tsconfig.server.vercel.json', {
+    stdio: 'inherit',
+    cwd: rootDir
+  });
+  console.log('✅ Arquivos TypeScript compilados com sucesso');
+} catch (error) {
+  console.log('⚠️ Erro ao compilar arquivos TypeScript:', error.message);
+  console.log('Continuando mesmo com erros...');
+}
+
 // Copiar todos os arquivos da pasta api para dist/api
 if (fs.existsSync(apiDir)) {
   const apiFiles = fs.readdirSync(apiDir);
@@ -186,9 +199,14 @@ export default app;
 fs.writeFileSync(path.join(apiDir, 'index.js'), simplifiedApiIndex);
 console.log('Arquivo api/index.js atualizado com versão simplificada');
 
-// Copiar o arquivo index.js atualizado para dist/api
-fs.copyFileSync(path.join(apiDir, 'index.js'), path.join(distApiDir, 'index.js'));
-console.log('Arquivo api/index.js copiado para dist/api/index.js');
+// Copiar o arquivo server.js para dist/api
+const serverJsPath = path.join(apiDir, 'server.js');
+if (fs.existsSync(serverJsPath)) {
+  fs.copyFileSync(serverJsPath, path.join(distApiDir, 'server.js'));
+  console.log('Arquivo api/server.js copiado para dist/api/server.js');
+} else {
+  console.error('ERRO: Arquivo api/server.js não encontrado!');
+}
 
 // Copiar o arquivo 404.js para dist/api se existir
 const api404Path = path.join(apiDir, '404.js');
@@ -198,7 +216,7 @@ if (fs.existsSync(api404Path)) {
 }
 
 // Copiar outros arquivos da API
-const apiFiles = ['auth.js', 'products.js', 'categories.js'];
+const apiFiles = ['auth.js', 'products.js', 'categories.js', 'index.js'];
 for (const file of apiFiles) {
   const srcPath = path.join(apiDir, file);
   if (fs.existsSync(srcPath)) {
@@ -214,7 +232,8 @@ export default function handler(req, res) {
     status: 'ok',
     message: 'API is running',
     timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV
+    env: process.env.NODE_ENV,
+    server: 'standalone'
   });
 }`;
 

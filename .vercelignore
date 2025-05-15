@@ -50,3 +50,6 @@ LICENSE
 !vercel.json
 !package.json
 !tsconfig.vercel.json
+!tsconfig.server.vercel.json
+!server
+!shared

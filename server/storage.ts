@@ -1463,7 +1463,7 @@ export class DatabaseStorage implements IStorage {
       .from(orders)
       .where(eq(orders.status, "completed"));
 
-    const totalSales = completedOrders.reduce((sum, order) => {
+    const totalSales = completedOrders.reduce((sum: number, order: any) => {
       return sum + parseFloat(order.total);
     }, 0);
 
