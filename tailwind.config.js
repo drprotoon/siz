@@ -1,6 +1,5 @@
-import type { Config } from "tailwindcss";
-
-export default {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
@@ -87,9 +86,8 @@ export default {
     },
   },
   plugins: [
-    // Use dynamic imports to avoid issues with missing dependencies
-    // during build time
-    () => {
+    // Use try-catch to handle missing dependencies
+    function() {
       try {
         return require("tailwindcss-animate");
       } catch (e) {
@@ -97,7 +95,7 @@ export default {
         return {};
       }
     },
-    () => {
+    function() {
       try {
         return require("@tailwindcss/typography");
       } catch (e) {
@@ -106,4 +104,4 @@ export default {
       }
     }
   ],
-} satisfies Config;
+}

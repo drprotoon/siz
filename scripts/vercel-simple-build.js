@@ -18,6 +18,19 @@ console.log('Iniciando build simplificado para Vercel...');
 const isVercel = process.env.VERCEL === '1';
 console.log(`Ambiente Vercel: ${isVercel ? 'Sim' : 'Não'}`);
 
+// Instala as dependências necessárias para o build
+console.log('Instalando dependências necessárias para o build...');
+try {
+  // Instala autoprefixer e outras dependências necessárias
+  execSync('npm install --no-save autoprefixer postcss tailwindcss tailwindcss-animate @tailwindcss/typography', {
+    stdio: 'inherit',
+    cwd: rootDir
+  });
+  console.log('✅ Dependências instaladas com sucesso!');
+} catch (error) {
+  console.error('❌ Erro ao instalar dependências:', error.message);
+}
+
 // Função para executar um comando e continuar mesmo se falhar
 function runCommand(command, description) {
   try {
@@ -105,23 +118,23 @@ const serveStatic = () => {
     path.resolve(rootDir, 'dist', 'public'),
     path.resolve(rootDir, 'public')
   ];
-  
+
   const distPath = possiblePaths.find(p => fs.existsSync(p)) || path.resolve(rootDir, 'dist', 'public');
-  
+
   console.log(\`Serving static files from: \${distPath}\`);
-  
+
   // Serve static files
   app.use(express.static(distPath));
-  
+
   // Handle client-side routing
   app.get('*', (req, res) => {
     // Skip API routes
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ message: 'API endpoint not found' });
     }
-    
+
     const indexPath = path.join(distPath, 'index.html');
-    
+
     if (fs.existsSync(indexPath)) {
       return res.sendFile(indexPath);
     } else {
@@ -135,16 +148,16 @@ const initServer = async () => {
   try {
     // Register API routes
     await registerRoutes();
-    
+
     // Serve static files and handle client-side routing
     serveStatic();
-    
+
     // Error handling middleware
     app.use((err, req, res, next) => {
       console.error('Server error:', err);
       res.status(500).json({ message: 'Internal Server Error' });
     });
-    
+
     // Start server if not in Vercel environment
     if (process.env.VERCEL !== '1') {
       const port = process.env.PORT || 5000;
@@ -162,7 +175,7 @@ initServer();
 
 // Export for Vercel
 export default app;`;
-  
+
   fs.writeFileSync(apiIndexPath, apiIndexContent);
   console.log('✅ Arquivo api/index.js criado com sucesso!');
 }
