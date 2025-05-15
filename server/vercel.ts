@@ -45,7 +45,12 @@ function serveStatic(app: express.Express) {
   app.use("*", (req, res) => {
     // Ignora requisições de API (já tratadas pelas rotas)
     if (req.originalUrl.startsWith('/api')) {
-      return res.status(404).json({ message: "API endpoint not found" });
+      console.log(`API endpoint não encontrado: ${req.originalUrl}`);
+      return res.status(404).json({
+        message: "API endpoint not found",
+        path: req.originalUrl,
+        method: req.method
+      });
     }
 
     const indexPath = path.resolve(distPath, "index.html");
