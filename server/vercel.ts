@@ -18,37 +18,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Middleware para logging
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      console.log(logLine);
-    }
-  });
-
-  next();
-});
-
 // Função para servir arquivos estáticos
 function serveStatic(app: express.Express) {
   // Tenta diferentes caminhos possíveis para encontrar os arquivos estáticos
@@ -58,10 +27,10 @@ function serveStatic(app: express.Express) {
     path.resolve(process.cwd(), "dist", "public"),
     path.resolve(process.cwd(), "public")
   ];
-  
+
   // Encontra o primeiro caminho que existe
   let distPath = possiblePaths.find(p => fs.existsSync(p));
-  
+
   if (!distPath) {
     console.warn("Nenhum diretório de arquivos estáticos encontrado. Usando o padrão.");
     distPath = path.resolve(process.cwd(), "dist", "public");
@@ -71,16 +40,16 @@ function serveStatic(app: express.Express) {
 
   // Servir arquivos estáticos
   app.use(express.static(distPath));
-  
+
   // Adiciona middleware para lidar com rotas do cliente
   app.use("*", (req, res) => {
     // Ignora requisições de API (já tratadas pelas rotas)
     if (req.originalUrl.startsWith('/api')) {
       return res.status(404).json({ message: "API endpoint not found" });
     }
-    
+
     const indexPath = path.resolve(distPath, "index.html");
-    
+
     if (fs.existsSync(indexPath)) {
       console.log(`Serving index.html for client-side route: ${req.originalUrl}`);
       res.sendFile(indexPath);
@@ -96,7 +65,7 @@ async function startServer() {
   try {
     // Registra as rotas da API
     const server = await registerRoutes(app);
-    
+
     // Middleware de tratamento de erros
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
@@ -104,10 +73,10 @@ async function startServer() {
       console.error(`Error: ${message}`);
       res.status(status).json({ message });
     });
-    
+
     // Configura o servidor para servir arquivos estáticos
     serveStatic(app);
-    
+
     // Na Vercel, não precisamos iniciar o servidor explicitamente
     // A Vercel usa o handler do Express diretamente
     if (process.env.VERCEL !== '1') {
@@ -120,7 +89,7 @@ async function startServer() {
         console.log(`Server running on port ${port}`);
       });
     }
-    
+
     return app;
   } catch (error) {
     console.error('Failed to start server:', error);

@@ -7,7 +7,17 @@ Este guia explica como fazer o deploy da aplicação SIZ COSMETICOS na Vercel.
 1. Conta na [Vercel](https://vercel.com)
 2. Conta no [Supabase](https://supabase.com) (para banco de dados e armazenamento)
 3. Git instalado na sua máquina
-4. Node.js instalado na sua máquina
+4. Node.js instalado na sua máquina (versão 18 ou superior)
+
+## Arquivos Importantes para o Deploy
+
+Antes de fazer o deploy, verifique se os seguintes arquivos estão configurados corretamente:
+
+- `vercel.json`: Configuração principal para a Vercel
+- `api/index.js`: Ponto de entrada para as funções serverless da Vercel
+- `scripts/vercel-deploy.js`: Script de build para a Vercel
+- `.env.vercel`: Variáveis de ambiente para o ambiente de produção na Vercel
+- `.vercelignore`: Lista de arquivos e diretórios que não serão enviados para a Vercel
 
 ## Opção 1: Deploy via CLI da Vercel
 
@@ -71,27 +81,36 @@ Configure as seguintes variáveis de ambiente no painel da Vercel:
 
 Após o deploy, acesse a URL fornecida pela Vercel para verificar se a aplicação está funcionando corretamente.
 
+Você pode testar a API acessando o endpoint `/api/hello`, que deve retornar uma resposta JSON.
+
 ## Solução de Problemas
 
 Se encontrar problemas durante o deploy:
 
-1. Verifique os logs de build na Vercel para identificar erros.
-2. Certifique-se de que todas as variáveis de ambiente estão configuradas corretamente.
-3. Verifique se o banco de dados está acessível a partir da Vercel.
-4. Tente fazer o deploy novamente com a opção "Override" para forçar uma reconstrução completa.
+1. **Erro de Runtime**: Verifique se o `vercel.json` está configurado com o runtime correto: `@vercel/node@3.0.0`.
 
-## Estrutura de Arquivos Importantes para o Deploy
+2. **Problemas com o Build**: Verifique os logs de build na Vercel para identificar erros específicos.
 
-- `vercel.json`: Configuração principal para a Vercel
-- `api/index.js`: Ponto de entrada para as funções serverless da Vercel
-- `scripts/vercel-deploy.js`: Script de build para a Vercel
-- `.env.vercel`: Variáveis de ambiente para o ambiente de produção na Vercel
+3. **Arquivos Estáticos não Carregam**: Verifique se o script de build está gerando corretamente os arquivos no diretório `dist/public`.
 
-## Notas Adicionais
+4. **Problemas com Variáveis de Ambiente**: Certifique-se de que todas as variáveis de ambiente necessárias estão configuradas no painel da Vercel.
 
-- A aplicação usa o Express.js para servir tanto a API quanto o frontend.
+5. **Problemas com o Banco de Dados**: Verifique se o banco de dados está acessível a partir da Vercel e se a string de conexão está correta.
+
+6. **Forçar Reconstrução**: Tente fazer o deploy novamente com a opção "Override" para forçar uma reconstrução completa.
+
+## Estrutura do Projeto
+
 - O frontend é construído com Vite e React.
 - O backend é construído com Express e TypeScript.
 - Os arquivos estáticos são servidos a partir do diretório `dist/public`.
 - As rotas da API começam com `/api/`.
 - As rotas do cliente são tratadas pelo React Router.
+
+## Notas Adicionais
+
+- A aplicação usa o Express.js para servir tanto a API quanto o frontend.
+- O arquivo `api/index.js` é o ponto de entrada para as funções serverless da Vercel.
+- O script `scripts/vercel-deploy.js` é responsável por construir a aplicação para a Vercel.
+- O arquivo `.env.vercel` contém as variáveis de ambiente para o ambiente de produção na Vercel.
+- O arquivo `.vercelignore` lista os arquivos e diretórios que não serão enviados para a Vercel.
