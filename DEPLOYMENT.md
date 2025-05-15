@@ -37,7 +37,12 @@ This document provides instructions for deploying the SIZ Cosméticos applicatio
    - Added proper CommonJS config files with .cjs extension
    - Created a script to generate the correct config files during build
 
-9. Fixed TypeScript issues in configuration files:
+9. Fixed dependency issues:
+   - Moved Tailwind and PostCSS to production dependencies
+   - Added explicit installation of Tailwind in the build script
+   - Created .npmrc file to ensure proper dependency installation
+
+10. Fixed TypeScript issues in configuration files:
    - Removed deprecated property usage
    - Added proper null checking
    - Used fileURLToPath for proper path resolution
@@ -55,28 +60,39 @@ This document provides instructions for deploying the SIZ Cosméticos applicatio
 
 ### Vercel Deployment
 
-1. Install the Vercel CLI (if not already installed):
+1. Prepare the environment for Vercel:
+   ```bash
+   chmod +x prepare-vercel.sh
+   ./prepare-vercel.sh
+   ```
+
+2. Install the Vercel CLI (if not already installed):
    ```bash
    npm install -g vercel
    ```
 
-2. Deploy to Vercel:
+3. Deploy to Vercel:
    ```bash
    vercel
    ```
 
-3. Follow the prompts to link your project to Vercel.
+4. Follow the prompts to link your project to Vercel with these settings:
+   - Framework: Other
+   - Build Command: npm run build
+   - Output Directory: dist/public
+   - Install Command: npm install
 
-4. Configure environment variables in the Vercel dashboard:
+5. Configure environment variables in the Vercel dashboard:
    - DATABASE_URL
    - SUPABASE_URL
    - SUPABASE_ANON_KEY
    - SUPABASE_SERVICE_ROLE_KEY
    - SESSION_SECRET
 
-5. Alternatively, deploy directly from GitHub:
+6. Alternatively, deploy directly from GitHub:
    - Connect your GitHub repository to Vercel
    - Configure the environment variables in the Vercel dashboard
+   - Use the same settings as above for the project configuration
    - Vercel will automatically deploy your application
 
 ## Troubleshooting
@@ -90,23 +106,27 @@ If you encounter issues during deployment:
 
 ### Common Issues and Solutions
 
-1. **Missing dependencies**: If you see errors about missing dependencies, the build script now automatically installs required dependencies during the build process.
+1. **Missing dependencies**: We've created a simplified package.json with only the essential dependencies for the frontend build.
 
-2. **Build errors with Replit plugins**: We've removed Replit-specific plugins that were causing issues with Vercel deployment.
+2. **Build errors with Replit plugins**: We've removed all Replit-specific plugins and created a clean configuration.
 
-3. **CSS not loading**: The build process now includes scripts to ensure CSS files are properly included in the build.
+3. **CSS not loading**: We've simplified the build process and created proper configuration files for PostCSS and Tailwind.
 
-4. **API routes not working**: Make sure the vercel.json file is properly configured to route API requests to the correct handler.
+4. **API routes not working**: We've updated the vercel.json file with proper routing configuration.
 
-5. **PostCSS or Tailwind errors**: We've added proper .cjs versions of configuration files to ensure they work in different environments.
+5. **PostCSS or Tailwind errors**: We've created simplified .mjs versions of configuration files that work with ESM.
 
-6. **Module format issues**: We've provided both ESM and CommonJS versions of configuration files with the correct file extensions (.js for ESM and .cjs for CommonJS).
+6. **Module format issues**: We've standardized on ESM format for all configuration files to avoid conflicts.
 
 7. **Vercel deployment settings**: For Vercel, use these settings:
-   - Build Command: `npm run vercel-build`
+   - Framework: Other
+   - Build Command: `npm run build`
    - Output Directory: `dist/public`
    - Install Command: `npm install`
-   - Framework Preset: Other
+
+8. **NPM errors**: We've created a preparation script that sets up a clean environment for Vercel deployment.
+
+9. **Complex build process**: We've simplified the build process to focus only on the frontend for Vercel deployment.
 
 ## Local Testing
 
