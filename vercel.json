@@ -6,7 +6,6 @@
   "installCommand": "npm install",
   "routes": [
     { "handle": "filesystem" },
-    { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {

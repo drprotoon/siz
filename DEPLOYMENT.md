@@ -13,10 +13,10 @@ This document provides instructions for deploying the SIZ Cosméticos applicatio
    - Added buildCommand to use the vercel-build script
    - Maintained proper routing configuration
 
-3. Simplified `api/index.js` for Vercel deployment:
-   - Improved error handling
-   - Ensured proper static file serving
-   - Integrated with server routes
+3. Removed `api/index.js` to avoid interference with the internal API:
+   - Removed redirection of API calls in vercel.json
+   - Ensured the application uses its own internal API
+   - Fixed login and product fetching functionality
 
 4. Simplified `server/vercel.ts` for better compatibility
 
