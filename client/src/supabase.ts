@@ -9,7 +9,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Storage bucket name
-export const bucketName = 'products';
+export const bucketName = 'product-images';
 
 // Helper function to get a public URL for a file in storage
 export function getPublicUrl(path: string): string {
