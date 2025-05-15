@@ -25,5 +25,15 @@
     "NODE_ENV": "production",
     "VERCEL": "1",
     "DISABLE_SECURE_COOKIE": "true"
-  }
+  },
+  "builds": [
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "dist/public/**",
+      "use": "@vercel/static"
+    }
+  ]
 }

@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 // Configuração para ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -20,13 +21,26 @@ if (!fs.existsSync(distApiDir)) {
   fs.mkdirSync(distApiDir, { recursive: true });
 }
 
+// Verificar se o TypeScript está instalado
+try {
+  console.log('Verificando TypeScript...');
+  execSync('npx tsc --version', { stdio: 'inherit' });
+  console.log('✅ TypeScript está instalado');
+} catch (error) {
+  console.log('⚠️ TypeScript não encontrado, instalando...');
+  execSync('npm install --no-save typescript@4.9.5', {
+    stdio: 'inherit',
+    cwd: rootDir
+  });
+}
+
 // Copiar todos os arquivos da pasta api para dist/api
 if (fs.existsSync(apiDir)) {
   const apiFiles = fs.readdirSync(apiDir);
   for (const file of apiFiles) {
     const srcPath = path.join(apiDir, file);
     const destPath = path.join(distApiDir, file);
-    
+
     if (fs.statSync(srcPath).isFile()) {
       fs.copyFileSync(srcPath, destPath);
       console.log(`Copiado: ${srcPath} -> ${destPath}`);
@@ -65,9 +79,9 @@ app.use(express.urlencoded({ extended: false }));
 
 // Rotas da API
 app.get('/api/hello', (req, res) => {
-  res.json({ 
-    message: 'API está funcionando!', 
-    timestamp: new Date().toISOString() 
+  res.json({
+    message: 'API está funcionando!',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -111,17 +125,17 @@ app.get('/api/products', (req, res) => {
       visible: true
     }
   ];
-  
+
   // Filtrar por categoria se especificado
   if (req.query.category) {
     return res.json(products.filter(p => p.category.slug === req.query.category));
   }
-  
+
   // Filtrar por featured se especificado
   if (req.query.featured === 'true') {
     return res.json(products.filter(p => p.featured));
   }
-  
+
   res.json(products);
 });
 
@@ -157,7 +171,7 @@ app.get('/api/test', (req, res) => {
 // Rota de fallback para endpoints não encontrados
 app.all('*', (req, res) => {
   console.log(\`Requisição não tratada para \${req.method} \${req.path}\`);
-  res.status(404).json({ 
+  res.status(404).json({
     message: 'API endpoint not found',
     path: req.path,
     method: req.method

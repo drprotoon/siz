@@ -21,12 +21,15 @@ test
 tests
 *.test.js
 *.spec.js
+*.test.ts
+*.spec.ts
 
 # Config files
 .eslintrc
 .prettierrc
 .babelrc
 tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 # Logs
 logs
@@ -40,3 +43,10 @@ README.md
 LICENSE
 *.md
 !VERCEL_DEPLOY.md
+
+# Não ignorar arquivos importantes
+!api
+!dist
+!vercel.json
+!package.json
+!tsconfig.vercel.json

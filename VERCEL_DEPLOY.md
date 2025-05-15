@@ -90,14 +90,30 @@ Se encontrar problemas durante o deploy:
 1. **Erro de Runtime**: Verifique se o `vercel.json` está configurado com o runtime correto: `@vercel/node@3.0.0`.
 
 2. **Problemas com o Build**: Verifique os logs de build na Vercel para identificar erros específicos.
+   - Se o build travar durante a compilação do TypeScript, verifique se o TypeScript está instalado corretamente.
+   - Certifique-se de que o script `vercel-build` está instalando o TypeScript explicitamente: `npm install typescript@4.9.5`.
+   - Verifique se o arquivo `tsconfig.vercel.json` está configurado corretamente.
 
 3. **Arquivos Estáticos não Carregam**: Verifique se o script de build está gerando corretamente os arquivos no diretório `dist/public`.
 
 4. **Problemas com Variáveis de Ambiente**: Certifique-se de que todas as variáveis de ambiente necessárias estão configuradas no painel da Vercel.
+   - Adicione `DISABLE_SECURE_COOKIE=true` para resolver problemas com cookies em produção.
 
 5. **Problemas com o Banco de Dados**: Verifique se o banco de dados está acessível a partir da Vercel e se a string de conexão está correta.
+   - Certifique-se de que o Supabase está configurado para permitir conexões da Vercel.
+   - Verifique se as chaves do Supabase estão corretas.
 
-6. **Forçar Reconstrução**: Tente fazer o deploy novamente com a opção "Override" para forçar uma reconstrução completa.
+6. **Problemas com Autenticação**: Se a autenticação não funcionar:
+   - Verifique se as variáveis de ambiente do Supabase estão configuradas corretamente.
+   - Verifique se a configuração de cookies está correta (DISABLE_SECURE_COOKIE=true).
+   - Verifique os logs do Vercel para identificar erros específicos.
+
+7. **API retornando 404**: Se as rotas da API retornarem 404:
+   - Verifique se o arquivo `vercel.json` está configurado corretamente.
+   - Verifique se os arquivos da API estão sendo copiados corretamente para a pasta `dist/api`.
+   - Verifique se as reescritas de URL estão configuradas corretamente.
+
+8. **Forçar Reconstrução**: Tente fazer o deploy novamente com a opção "Override" para forçar uma reconstrução completa.
 
 ## Estrutura do Projeto
 
