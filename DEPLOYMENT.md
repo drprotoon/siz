@@ -13,9 +13,10 @@ This document provides instructions for deploying the SIZ Cosméticos applicatio
    - Added buildCommand to use the vercel-build script
    - Maintained proper routing configuration
 
-3. Removed `api/index.js` to avoid interference with the internal API:
-   - Removed redirection of API calls in vercel.json
-   - Ensured the application uses its own internal API
+3. Updated server.js to handle API requests:
+   - Added mock API endpoints for authentication, products, and categories
+   - Added CORS support to allow cross-origin requests
+   - Added session management for authentication
    - Fixed login and product fetching functionality
 
 4. Simplified `server/vercel.ts` for better compatibility
@@ -112,7 +113,7 @@ If you encounter issues during deployment:
 
 3. **CSS not loading**: We've simplified the build process and created proper configuration files for PostCSS and Tailwind.
 
-4. **API routes not working**: We've updated the vercel.json file with proper routing configuration.
+4. **API routes not working**: We've removed the api/index.js file and its route from vercel.json to ensure the application uses its own internal API.
 
 5. **PostCSS or Tailwind errors**: We've created simplified .mjs versions of configuration files that work with ESM.
 
