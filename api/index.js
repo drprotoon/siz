@@ -1,13 +1,15 @@
 // This file is the entry point for Vercel serverless functions
 // It will be automatically detected by Vercel
 
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Setup for CommonJS
-const __dirname = process.cwd();
-const rootDir = __dirname;
+// Setup for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
 
 // Create Express app
 const app = express();
@@ -71,4 +73,4 @@ if (process.env.VERCEL !== '1') {
 }
 
 // Export for Vercel
-module.exports = app;
+export default app;

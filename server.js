@@ -1,10 +1,12 @@
 // Minimal server for Vercel deployment
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-// Use process.cwd() for the current directory
-const __dirname = process.cwd();
+// Setup for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create Express app
 const app = express();
@@ -50,4 +52,4 @@ if (process.env.VERCEL !== '1') {
 }
 
 // Export for Vercel
-module.exports = app;
+export default app;
