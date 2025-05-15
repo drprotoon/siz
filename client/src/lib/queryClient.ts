@@ -1,6 +1,22 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 /**
+ * Obtém a URL base da API com base no ambiente
+ * Em produção, usa a URL atual do navegador
+ * Em desenvolvimento, usa localhost:5000
+ */
+export function getApiBaseUrl(): string {
+  // Em ambiente de produção, usa a URL atual do navegador
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+    const { protocol, host } = window.location;
+    return `${protocol}//${host}`;
+  }
+
+  // Em desenvolvimento, usa localhost:5000
+  return 'http://localhost:5000';
+}
+
+/**
  * Verifica se a resposta da API é válida e lança um erro se não for
  */
 async function throwIfResNotOk(res: Response) {
@@ -38,8 +54,15 @@ export async function apiRequest(
       ...customHeaders
     };
 
+    // Construir a URL completa
+    const fullUrl = url.startsWith('http')
+      ? url
+      : `${url.startsWith('/') ? getApiBaseUrl() : ''}${url}`;
+
+    console.log(`Making API request to: ${fullUrl}`);
+
     // Fazer a requisição
-    const res = await fetch(url, {
+    const res = await fetch(fullUrl, {
       method,
       headers,
       body: data ? JSON.stringify(data) : undefined,
@@ -79,9 +102,17 @@ export const getQueryFn: <T>(options: {
     const params = queryKey.length > 1 ? queryKey[1] : undefined;
 
     // Construir a URL com os parâmetros, se houver
-    const finalUrl = params
+    let finalUrl = params
       ? `${url}${url.includes('?') ? '&' : '?'}${new URLSearchParams(params as Record<string, string>).toString()}`
       : url;
+
+    // Adicionar a URL base se a URL não for absoluta
+    if (!finalUrl.startsWith('http')) {
+      const baseUrl = getApiBaseUrl();
+      finalUrl = `${finalUrl.startsWith('/') ? baseUrl : ''}${finalUrl}`;
+    }
+
+    console.log(`Making query request to: ${finalUrl}`);
 
     // Fazer a requisição
     const res = await fetch(finalUrl, {
@@ -124,7 +155,15 @@ export const getUserQueryFn: <T>(options: {
     const userId = queryKey.length > 1 ? queryKey[1] : undefined;
 
     // Construir a URL final
-    const url = userId ? `${baseUrl}/${userId}` : baseUrl;
+    let url = userId ? `${baseUrl}/${userId}` : baseUrl;
+
+    // Adicionar a URL base se a URL não for absoluta
+    if (!url.startsWith('http')) {
+      const apiBaseUrl = getApiBaseUrl();
+      url = `${url.startsWith('/') ? apiBaseUrl : ''}${url}`;
+    }
+
+    console.log(`Making user query request to: ${url}`);
 
     // Fazer a requisição
     const res = await fetch(url, {
