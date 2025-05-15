@@ -1,5 +1,6 @@
 // Serverless function for handling product requests
 import cors from 'cors';
+import { createClient } from '@supabase/supabase-js';
 
 // Configure CORS
 const corsMiddleware = cors({
@@ -9,8 +10,22 @@ const corsMiddleware = cors({
   credentials: true,
 });
 
-// Mock products data
-const products = [
+// Configuração do Supabase
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+// Cliente do Supabase
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : null;
+
+// Mock products data para fallback
+const mockProducts = [
   {
     id: 1,
     name: 'Perfume Feminino',
@@ -39,8 +54,23 @@ const products = [
   }
 ];
 
+// Função para garantir que images seja um array
+function ensureImagesArray(images) {
+  if (!images) return [];
+  if (Array.isArray(images)) return images;
+
+  try {
+    // Tenta converter de string JSON para array
+    const parsed = JSON.parse(images);
+    return Array.isArray(parsed) ? parsed : [images];
+  } catch (e) {
+    // Se não for um JSON válido, retorna como um item único em um array
+    return [images];
+  }
+}
+
 // Handler function
-export default function handler(req, res) {
+export default async function handler(req, res) {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     console.log('OPTIONS request received for products');
@@ -52,19 +82,69 @@ export default function handler(req, res) {
   // Handle GET request
   if (req.method === 'GET') {
     console.log('Products request received');
-    
+
     // Apply CORS middleware
-    return corsMiddleware(req, res, () => {
+    return corsMiddleware(req, res, async () => {
       try {
-        // Return mock products
-        return res.status(200).json(products);
+        // Verificar se o Supabase está configurado
+        if (!supabase) {
+          console.log('Supabase not configured, using mock products');
+          return res.status(200).json(mockProducts);
+        }
+
+        // Extrair parâmetros de consulta
+        const { category, featured } = req.query;
+
+        // Construir a consulta base
+        let query = supabase
+          .from('products')
+          .select(`
+            *,
+            category:categories(id, name, slug)
+          `)
+          .eq('visible', true);
+
+        // Filtrar por categoria se especificado
+        if (category) {
+          // Primeiro, buscar o ID da categoria pelo slug
+          const { data: categoryData } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('slug', category)
+            .single();
+
+          if (categoryData) {
+            query = query.eq('categoryId', categoryData.id);
+          }
+        }
+
+        // Filtrar por featured se especificado
+        if (featured === 'true') {
+          query = query.eq('featured', true);
+        }
+
+        // Executar a consulta
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('Error fetching products from Supabase:', error);
+          return res.status(500).json({ message: 'Error fetching products' });
+        }
+
+        // Processar os resultados para garantir que images seja um array
+        const processedProducts = data.map(product => ({
+          ...product,
+          images: ensureImagesArray(product.images)
+        }));
+
+        return res.status(200).json(processedProducts);
       } catch (error) {
         console.error('Error fetching products:', error);
         return res.status(500).json({ message: 'Internal server error' });
       }
     });
   }
-  
+
   // Handle other methods
   return res.status(405).json({ message: 'Method not allowed' });
 }

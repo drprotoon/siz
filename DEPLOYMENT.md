@@ -13,10 +13,11 @@ This document provides instructions for deploying the SIZ Cosméticos applicatio
    - Added buildCommand to use the vercel-build script
    - Maintained proper routing configuration
 
-3. Created serverless API functions for Vercel:
+3. Created serverless API functions for Vercel with Supabase integration:
    - Added dedicated API handlers for authentication, products, and categories
    - Implemented proper CORS support with preflight handling
-   - Created mock data for testing and demonstration
+   - Integrated with Supabase database for real data
+   - Added fallback to mock data when Supabase is not configured
    - Fixed login and product fetching functionality
 
 4. Simplified `server/vercel.ts` for better compatibility
@@ -113,7 +114,7 @@ If you encounter issues during deployment:
 
 3. **CSS not loading**: We've simplified the build process and created proper configuration files for PostCSS and Tailwind.
 
-4. **API routes not working**: We've updated server.js to handle API requests with mock data and added CORS support to fix 405 Method Not Allowed errors.
+4. **API routes not working**: We've created dedicated serverless API functions for each endpoint with proper CORS handling to fix 405 Method Not Allowed errors.
 
 5. **PostCSS or Tailwind errors**: We've created simplified .mjs versions of configuration files that work with ESM.
 
