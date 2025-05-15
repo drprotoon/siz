@@ -147,7 +147,7 @@ const packageJson = {
   "version": "1.0.0",
   "type": "module",
   "engines": {
-    "node": "18.x"
+    "node": "22.x"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -198,7 +198,8 @@ const vercelJson = {
       "src": "api/server.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["api/**"]
+        "includeFiles": ["api/**"],
+        "nodeVersion": "22.x"
       }
     },
     {

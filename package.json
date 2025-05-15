@@ -3,6 +3,9 @@
   "version": "1.0.6",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "vite build && tsc -p tsconfig.server.json && node scripts/build-server.js",
