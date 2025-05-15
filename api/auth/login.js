@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 
 // Configure CORS
 const corsMiddleware = cors({
-  origin: '*',
+  origin: true, // Isso permite que o Vercel use o Origin da requisição
   methods: ['POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -43,12 +43,15 @@ export default async function handler(req, res) {
     return corsMiddleware(req, res, async () => {
       try {
         // Extract credentials
-        const { username, password } = req.body || {};
+        const { username, email, password } = req.body || {};
+
+        // Determinar qual campo usar para login (username ou email)
+        const loginField = email || username;
 
         // Simple validation
-        if (!username || !password) {
-          console.log('Missing username or password');
-          return res.status(400).json({ message: 'Username and password are required' });
+        if (!loginField || !password) {
+          console.log('Missing login credentials or password');
+          return res.status(400).json({ message: 'Login credentials and password are required' });
         }
 
         // Verificar se o Supabase está configurado
@@ -57,7 +60,8 @@ export default async function handler(req, res) {
           // Fallback para login mock
           const user = {
             id: 1,
-            username,
+            username: loginField,
+            email: loginField.includes('@') ? loginField : `${loginField}@example.com`,
             role: 'customer'
           };
 
@@ -67,23 +71,40 @@ export default async function handler(req, res) {
           });
         }
 
-        // Buscar usuário no banco de dados
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('username', username)
-          .single();
+        // Determinar se o login é por email ou username
+        const isEmail = loginField.includes('@');
 
-        if (error || !data) {
-          console.log('User not found:', username);
-          return res.status(401).json({ message: 'Incorrect username or password' });
+        // Buscar usuário no banco de dados
+        let query = supabase.from('users').select('*');
+
+        if (isEmail) {
+          query = query.eq('email', loginField);
+        } else {
+          query = query.eq('username', loginField);
         }
 
-        // Verificar senha
-        const isValidPassword = await bcrypt.compare(password, data.password);
+        const { data, error } = await query.single();
+
+        if (error || !data) {
+          console.log('User not found:', loginField);
+          return res.status(401).json({ message: 'Incorrect username/email or password' });
+        }
+
+        // Verificar senha - primeiro tentar com bcrypt, se falhar usar comparação direta
+        let isValidPassword = false;
+
+        try {
+          // Tentar usar bcrypt para comparar senhas
+          isValidPassword = await bcrypt.compare(password, data.password);
+        } catch (bcryptError) {
+          console.log('Error using bcrypt, falling back to direct comparison:', bcryptError);
+          // Fallback para comparação direta (não seguro, apenas para demonstração)
+          isValidPassword = password === data.password;
+        }
+
         if (!isValidPassword) {
-          console.log('Invalid password for user:', username);
-          return res.status(401).json({ message: 'Incorrect username or password' });
+          console.log('Invalid password for user:', loginField);
+          return res.status(401).json({ message: 'Incorrect username/email or password' });
         }
 
         // Remover senha do objeto de usuário

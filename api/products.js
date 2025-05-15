@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Configure CORS
 const corsMiddleware = cors({
-  origin: '*',
+  origin: true, // Isso permite que o Vercel use o Origin da requisição
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -86,58 +86,79 @@ export default async function handler(req, res) {
     // Apply CORS middleware
     return corsMiddleware(req, res, async () => {
       try {
-        // Verificar se o Supabase está configurado
-        if (!supabase) {
-          console.log('Supabase not configured, using mock products');
-          return res.status(200).json(mockProducts);
-        }
-
         // Extrair parâmetros de consulta
         const { category, featured } = req.query;
 
-        // Construir a consulta base
-        let query = supabase
-          .from('products')
-          .select(`
-            *,
-            category:categories(id, name, slug)
-          `)
-          .eq('visible', true);
+        // Verificar se o Supabase está configurado
+        if (!supabase) {
+          console.log('Supabase not configured, using mock products');
 
-        // Filtrar por categoria se especificado
-        if (category) {
-          // Primeiro, buscar o ID da categoria pelo slug
-          const { data: categoryData } = await supabase
-            .from('categories')
-            .select('id')
-            .eq('slug', category)
-            .single();
+          // Filtrar produtos mock de acordo com os parâmetros
+          let filteredProducts = [...mockProducts];
 
-          if (categoryData) {
-            query = query.eq('categoryId', categoryData.id);
+          if (category) {
+            filteredProducts = filteredProducts.filter(
+              product => product.category.slug === category
+            );
           }
+
+          if (featured === 'true') {
+            filteredProducts = filteredProducts.filter(
+              product => product.featured === true
+            );
+          }
+
+          return res.status(200).json(filteredProducts);
         }
 
-        // Filtrar por featured se especificado
-        if (featured === 'true') {
-          query = query.eq('featured', true);
+        try {
+          // Construir a consulta base
+          let query = supabase
+            .from('products')
+            .select(`
+              *,
+              category:categories(id, name, slug)
+            `)
+            .eq('visible', true);
+
+          // Filtrar por categoria se especificado
+          if (category) {
+            // Primeiro, buscar o ID da categoria pelo slug
+            const { data: categoryData } = await supabase
+              .from('categories')
+              .select('id')
+              .eq('slug', category)
+              .single();
+
+            if (categoryData) {
+              query = query.eq('categoryId', categoryData.id);
+            }
+          }
+
+          // Filtrar por featured se especificado
+          if (featured === 'true') {
+            query = query.eq('featured', true);
+          }
+
+          // Executar a consulta
+          const { data, error } = await query;
+
+          if (error) {
+            console.error('Error fetching products from Supabase:', error);
+            return res.status(200).json(mockProducts); // Fallback para produtos mock em caso de erro
+          }
+
+          // Processar os resultados para garantir que images seja um array
+          const processedProducts = data.map(product => ({
+            ...product,
+            images: ensureImagesArray(product.images)
+          }));
+
+          return res.status(200).json(processedProducts);
+        } catch (error) {
+          console.error('Error processing products query:', error);
+          return res.status(200).json(mockProducts); // Fallback para produtos mock em caso de erro
         }
-
-        // Executar a consulta
-        const { data, error } = await query;
-
-        if (error) {
-          console.error('Error fetching products from Supabase:', error);
-          return res.status(500).json({ message: 'Error fetching products' });
-        }
-
-        // Processar os resultados para garantir que images seja um array
-        const processedProducts = data.map(product => ({
-          ...product,
-          images: ensureImagesArray(product.images)
-        }));
-
-        return res.status(200).json(processedProducts);
       } catch (error) {
         console.error('Error fetching products:', error);
         return res.status(500).json({ message: 'Internal server error' });

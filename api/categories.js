@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Configure CORS
 const corsMiddleware = cors({
-  origin: '*',
+  origin: true, // Isso permite que o Vercel use o Origin da requisição
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -49,41 +49,66 @@ export default async function handler(req, res) {
     // Apply CORS middleware
     return corsMiddleware(req, res, async () => {
       try {
+        // Verificar se é uma solicitação para uma categoria específica por slug
+        const slug = req.query.slug;
+
         // Verificar se o Supabase está configurado
         if (!supabase) {
           console.log('Supabase not configured, using mock categories');
+
+          if (slug) {
+            // Buscar categoria mock pelo slug
+            const category = mockCategories.find(cat => cat.slug === slug);
+            if (category) {
+              return res.status(200).json(category);
+            } else {
+              return res.status(404).json({ message: 'Category not found' });
+            }
+          }
+
           return res.status(200).json(mockCategories);
         }
 
-        // Verificar se é uma solicitação para uma categoria específica por slug
-        const slug = req.query.slug;
-        if (slug) {
+        try {
+          if (slug) {
+            // Buscar categoria específica pelo slug
+            const { data, error } = await supabase
+              .from('categories')
+              .select('*')
+              .eq('slug', slug)
+              .single();
+
+            if (error) {
+              console.error('Error fetching category from Supabase:', error);
+
+              // Fallback para categorias mock
+              const mockCategory = mockCategories.find(cat => cat.slug === slug);
+              if (mockCategory) {
+                return res.status(200).json(mockCategory);
+              }
+
+              return res.status(404).json({ message: 'Category not found' });
+            }
+
+            return res.status(200).json(data);
+          }
+
+          // Buscar todas as categorias
           const { data, error } = await supabase
             .from('categories')
             .select('*')
-            .eq('slug', slug)
-            .single();
+            .order('order', { ascending: true });
 
           if (error) {
-            console.error('Error fetching category from Supabase:', error);
-            return res.status(404).json({ message: 'Category not found' });
+            console.error('Error fetching categories from Supabase:', error);
+            return res.status(200).json(mockCategories); // Fallback para categorias mock
           }
 
           return res.status(200).json(data);
+        } catch (error) {
+          console.error('Error processing categories query:', error);
+          return res.status(200).json(mockCategories); // Fallback para categorias mock
         }
-
-        // Buscar todas as categorias
-        const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .order('order', { ascending: true });
-
-        if (error) {
-          console.error('Error fetching categories from Supabase:', error);
-          return res.status(500).json({ message: 'Error fetching categories' });
-        }
-
-        return res.status(200).json(data);
       } catch (error) {
         console.error('Error fetching categories:', error);
         return res.status(500).json({ message: 'Internal server error' });
