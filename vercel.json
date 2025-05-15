@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "// Updated for redeploy": "true",
   "framework": null,
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/public",
@@ -34,6 +33,5 @@
       "src": "dist/public/**",
       "use": "@vercel/static"
     }
-  ],
-  "deployTimestamp": "2023-11-11T12:00:00.000Z"
+  ]
 }
