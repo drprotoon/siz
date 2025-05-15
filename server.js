@@ -3,11 +3,16 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import session from 'express-session';
-import passport from 'passport';
-import { Strategy as LocalStrategy } from 'passport-local';
-import bcrypt from 'bcrypt';
 import cors from 'cors';
+
+// These modules might cause issues in serverless environment, so we'll mock them
+const mockSession = (req, res, next) => {
+  if (!req.session) {
+    req.session = { id: 'mock-session-id' };
+    req.session.destroy = (cb) => cb && cb();
+  }
+  next();
+};
 
 // Setup for ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -24,25 +29,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Handle OPTIONS method for preflight requests
+app.options('*', cors());
+
 // Middleware for parsing JSON and URL-encoded data
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Session setup
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'siz-cosmeticos-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
-
-// Initialize Passport
-app.use(passport.initialize());
-app.use(passport.session());
+// Use mock session middleware
+app.use(mockSession);
 
 // Find the static files directory
 const publicDir = path.join(__dirname, 'dist', 'public');
@@ -68,42 +63,62 @@ app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from Vercel!' });
 });
 
+// Special handler for login route to debug
+app.options('/api/auth/login', (req, res) => {
+  console.log('OPTIONS request for login received');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.status(200).send();
+});
+
 // Authentication endpoints
 app.post('/api/auth/login', (req, res) => {
+  console.log('Login request received:', req.body);
+
   // For testing purposes, accept any login
   const { username, password } = req.body;
 
   if (username && password) {
-    // Set a user in the session
-    req.session.user = {
+    // Set a mock user
+    const user = {
       id: 1,
       username,
       role: 'customer'
     };
 
-    return res.json({
+    // Store in mock session
+    req.session.user = user;
+
+    console.log('Login successful for user:', username);
+    return res.status(200).json({
       message: 'Login successful',
-      user: {
-        id: 1,
-        username,
-        role: 'customer'
-      }
+      user
     });
   }
 
+  console.log('Invalid credentials provided');
   res.status(401).json({ message: 'Invalid credentials' });
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ message: 'Logout successful' });
-  });
+  console.log('Logout request received');
+
+  // Clear mock session
+  delete req.session.user;
+
+  res.status(200).json({ message: 'Logout successful' });
 });
 
 app.get('/api/auth/me', (req, res) => {
+  console.log('Auth check request received');
+
+  // Check mock session
   if (req.session.user) {
-    res.json({ user: req.session.user });
+    console.log('User is authenticated:', req.session.user);
+    res.status(200).json({ user: req.session.user });
   } else {
+    console.log('User is not authenticated');
     res.status(401).json({ message: 'Not authenticated' });
   }
 });
