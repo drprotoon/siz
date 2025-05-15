@@ -70,7 +70,7 @@ export async function setupVite(app: Express, server: Server) {
 export function serveStatic(app: Express) {
   // Em produção, os arquivos estáticos estão em dist/public
   const distPath = process.env.NODE_ENV === 'production'
-    ? path.resolve(import.meta.dirname, "..", "public")
+    ? path.resolve(import.meta.dirname, "..", "dist", "public")
     : path.resolve(import.meta.dirname, "public");
 
   console.log(`Serving static files from: ${distPath}`);

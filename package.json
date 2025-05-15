@@ -14,7 +14,8 @@
     "db:migrate": "drizzle-kit generate:pg",
     "db:studio": "drizzle-kit studio",
     "prepare-deploy": "node scripts/prepare-vercel-deploy.js",
-    "vercel-build": "node scripts/vercel-build.js"
+    "vercel-build": "node scripts/vercel-build.js",
+    "debug-vercel": "node scripts/debug-vercel.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

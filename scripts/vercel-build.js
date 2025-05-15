@@ -61,4 +61,26 @@ fs.writeFileSync(
   )
 );
 
+// Executa o script de debug
+try {
+  console.log('Executando script de debug...');
+  execSync('node scripts/debug-vercel.js', { stdio: 'inherit', cwd: rootDir });
+  console.log('Script de debug executado com sucesso!');
+} catch (error) {
+  console.error('Erro durante a execução do script de debug:', error);
+  // Não falha o build se o script de debug falhar
+}
+
+// Copia o arquivo vercel.html para o diretório public se ele existir
+const vercelHtmlSrc = path.join(rootDir, 'public', 'vercel.html');
+const vercelHtmlDest = path.join(publicDir, 'vercel.html');
+if (fs.existsSync(vercelHtmlSrc)) {
+  try {
+    fs.copyFileSync(vercelHtmlSrc, vercelHtmlDest);
+    console.log(`Arquivo vercel.html copiado para ${vercelHtmlDest}`);
+  } catch (error) {
+    console.error('Erro ao copiar arquivo vercel.html:', error);
+  }
+}
+
 console.log('Build para Vercel concluído com sucesso!');
