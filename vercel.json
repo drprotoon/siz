@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm install && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:./dist/public/*",
+  "buildCommand": "npm install && npm run vercel-build",
   "outputDirectory": "dist/public",
   "functions": {
     "api/index.js": {
