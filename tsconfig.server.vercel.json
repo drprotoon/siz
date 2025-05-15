@@ -17,8 +17,12 @@
     "allowJs": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "typeRoots": ["./node_modules/@types", "./types.d.ts"]
   },
-  "include": ["server/**/*", "shared/**/*", "api/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["server/**/*", "shared/**/*", "api/**/*", "types.d.ts"],
+  "exclude": ["node_modules", "dist"],
+  "ts-node": {
+    "transpileOnly": true
+  }
 }

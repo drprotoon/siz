@@ -25,25 +25,25 @@ if (!fs.existsSync(distPublicDir)) {
 const indexHtmlPath = path.join(distPublicDir, 'index.html');
 if (!fs.existsSync(indexHtmlPath)) {
   console.log(`Arquivo index.html não encontrado em ${indexHtmlPath}`);
-  
+
   // Verificar se o arquivo existe na pasta client
   const clientIndexHtmlPath = path.join(clientDir, 'index.html');
   if (fs.existsSync(clientIndexHtmlPath)) {
     console.log(`Encontrado index.html em ${clientIndexHtmlPath}`);
-    
+
     // Copiar o arquivo para dist/public
     const indexHtmlContent = fs.readFileSync(clientIndexHtmlPath, 'utf8');
-    
+
     // Modificar o conteúdo para apontar para os arquivos corretos
     const modifiedContent = indexHtmlContent
       .replace('<script type="module" src="/src/main.tsx"></script>', '<script type="module" src="/assets/main.js"></script>')
       .replace('<link rel="icon" href="/favicon.ico" />', '<link rel="icon" href="/favicon.ico" />');
-    
+
     fs.writeFileSync(indexHtmlPath, modifiedContent);
     console.log(`Arquivo index.html copiado e modificado para ${indexHtmlPath}`);
   } else {
     console.log(`Arquivo index.html não encontrado em ${clientIndexHtmlPath}`);
-    
+
     // Criar um arquivo index.html básico
     const basicIndexHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -60,9 +60,39 @@ if (!fs.existsSync(indexHtmlPath)) {
     <script type="module" src="/assets/main.js"></script>
   </body>
 </html>`;
-    
+
     fs.writeFileSync(indexHtmlPath, basicIndexHtml);
     console.log(`Arquivo index.html básico criado em ${indexHtmlPath}`);
+  }
+} else {
+  console.log(`Arquivo index.html encontrado em ${indexHtmlPath}`);
+
+  // Verificar se o conteúdo do arquivo está correto
+  const indexHtmlContent = fs.readFileSync(indexHtmlPath, 'utf8');
+
+  // Verificar se o arquivo contém a tag root
+  if (!indexHtmlContent.includes('<div id="root"></div>')) {
+    console.log('Arquivo index.html não contém a tag root, corrigindo...');
+
+    // Criar um arquivo index.html básico
+    const basicIndexHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>SIZ Cosméticos - Beleza e Cuidados Pessoais</title>
+    <meta name="description" content="Loja de cosméticos e produtos de beleza premium. Encontre perfumes, maquiagem, skincare e muito mais." />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/assets/index.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/assets/main.js"></script>
+  </body>
+</html>`;
+
+    fs.writeFileSync(indexHtmlPath, basicIndexHtml);
+    console.log(`Arquivo index.html corrigido em ${indexHtmlPath}`);
   }
 }
 
@@ -77,7 +107,7 @@ if (!fs.existsSync(assetsDir)) {
 const assetsFiles = fs.existsSync(assetsDir) ? fs.readdirSync(assetsDir) : [];
 if (assetsFiles.length === 0) {
   console.log(`Nenhum arquivo encontrado em ${assetsDir}`);
-  
+
   // Criar um arquivo CSS básico
   const basicCss = `/* Arquivo CSS básico */
 body {
@@ -92,10 +122,10 @@ body {
   flex-direction: column;
   min-height: 100vh;
 }`;
-  
+
   fs.writeFileSync(path.join(assetsDir, 'index.css'), basicCss);
   console.log(`Arquivo CSS básico criado em ${path.join(assetsDir, 'index.css')}`);
-  
+
   // Criar um arquivo JS básico
   const basicJs = `// Arquivo JS básico
 console.log('SIZ Cosméticos - Aplicação carregada');
@@ -111,22 +141,22 @@ if (root) {
   container.style.height = '100vh';
   container.style.textAlign = 'center';
   container.style.padding = '20px';
-  
+
   const title = document.createElement('h1');
   title.textContent = 'SIZ Cosméticos';
   title.style.color = '#333';
   title.style.marginBottom = '20px';
-  
+
   const message = document.createElement('p');
   message.textContent = 'Estamos em manutenção. Voltaremos em breve!';
   message.style.fontSize = '18px';
   message.style.color = '#666';
-  
+
   container.appendChild(title);
   container.appendChild(message);
   root.appendChild(container);
 }`;
-  
+
   fs.writeFileSync(path.join(assetsDir, 'main.js'), basicJs);
   console.log(`Arquivo JS básico criado em ${path.join(assetsDir, 'main.js')}`);
 }

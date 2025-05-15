@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "// Updated for redeploy": "true",
   "framework": null,
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/public",
@@ -16,15 +17,7 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/server.js" },
-    { "source": "/(assets|favicon.ico)(.*)", "destination": "/$1$2" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/api/(.*)", "dest": "/api/server.js" },
-    { "src": "^/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "^/favicon.ico", "dest": "/favicon.ico" },
-    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
     "NODE_ENV": "production",
@@ -41,5 +34,6 @@
       "src": "dist/public/**",
       "use": "@vercel/static"
     }
-  ]
+  ],
+  "deployTimestamp": "2023-11-11T12:00:00.000Z"
 }
