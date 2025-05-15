@@ -37,7 +37,33 @@ export default function AuthForm({ onSuccess, showCard = true }: AuthFormProps) 
   // Mutation para login
   const loginMutation = useMutation({
     mutationFn: async (data: { email: string; password: string }) => {
-      await login(data.email, data.password);
+      try {
+        console.log('Attempting login with:', data.email);
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ username: data.email, password: data.password })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Falha no login');
+        }
+
+        const userData = await response.json();
+        console.log('Login successful, user data:', userData);
+
+        // Refresh the page to ensure all auth state is updated
+        window.location.reload();
+
+        return userData;
+      } catch (error) {
+        console.error('Login error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({

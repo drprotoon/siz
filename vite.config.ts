@@ -27,5 +27,22 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    cssCodeSplit: false, // Disable CSS code splitting to ensure all CSS is in one file
+    rollupOptions: {
+      output: {
+        // Ensure CSS is extracted to a separate file
+        assetFileNames: (assetInfo) => {
+          let extType = assetInfo.name.split('.').at(1);
+          if (/\.(css)$/i.test(assetInfo.name)) {
+            return `assets/styles.[hash][extname]`;
+          }
+          return `assets/[name].[hash][extname]`;
+        },
+        // Ensure JS is in a predictable location
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        manualChunks: undefined
+      }
+    }
   },
 });

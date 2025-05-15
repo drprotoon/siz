@@ -83,18 +83,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
+        console.log('Fetching user authentication status...');
         const response = await fetch('/api/auth/me', {
           credentials: 'include',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
         });
 
         if (response.ok) {
           const data = await response.json();
+          console.log('Auth response:', data);
           if (data.user) {
+            console.log('User authenticated:', data.user);
             login(data.user);
           } else {
+            console.log('No user data in response, logging out');
             logout();
           }
         } else {
+          console.log('Auth request failed with status:', response.status);
           logout();
         }
       } catch (err) {

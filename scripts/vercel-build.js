@@ -11,20 +11,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-console.log('Iniciando build para Vercel...');
+console.log('Iniciando processo de pós-build para Vercel...');
 
 // Verifica se estamos no ambiente da Vercel
 const isVercel = process.env.VERCEL === '1';
 console.log(`Ambiente Vercel: ${isVercel ? 'Sim' : 'Não'}`);
 
-// Executa o build
+// O build já foi executado pelo comando vercel-build no package.json
+console.log('Executando tarefas de pós-build...');
+
+// Executa o script para copiar o index.html
 try {
-  console.log('Executando build do frontend e backend...');
-  execSync('npm run build', { stdio: 'inherit', cwd: rootDir });
-  console.log('Build concluído com sucesso!');
+  console.log('Copiando index.html para o diretório dist/public...');
+  execSync('node scripts/copy-index-html.js', { stdio: 'inherit', cwd: rootDir });
 } catch (error) {
-  console.error('Erro durante o build:', error);
-  process.exit(1);
+  console.error('Erro ao copiar index.html:', error);
+  // Não falhar o build se o script falhar
+}
+
+// Executa o script para garantir que os arquivos CSS estão incluídos
+try {
+  console.log('Verificando arquivos CSS...');
+  execSync('node scripts/ensure-css.js', { stdio: 'inherit', cwd: rootDir });
+} catch (error) {
+  console.error('Erro ao verificar arquivos CSS:', error);
+  // Não falhar o build se o script falhar
 }
 
 // Verifica se os arquivos foram gerados corretamente
@@ -81,6 +92,62 @@ if (fs.existsSync(vercelHtmlSrc)) {
   } catch (error) {
     console.error('Erro ao copiar arquivo vercel.html:', error);
   }
+}
+
+// Copia o arquivo index.html do cliente para o diretório public
+const clientIndexHtmlSrc = path.join(rootDir, 'client', 'index.html');
+const clientIndexHtmlDest = path.join(publicDir, 'index.html');
+
+// Verifica se o arquivo index.html já existe no diretório public
+if (!fs.existsSync(clientIndexHtmlDest) && fs.existsSync(clientIndexHtmlSrc)) {
+  try {
+    // Lê o conteúdo do arquivo index.html
+    let indexHtmlContent = fs.readFileSync(clientIndexHtmlSrc, 'utf-8');
+
+    // Modifica o caminho do script para apontar para o arquivo correto
+    indexHtmlContent = indexHtmlContent.replace(
+      'src="/src/main.tsx"',
+      'src="/main.js"'
+    );
+
+    // Adiciona título e meta tags
+    indexHtmlContent = indexHtmlContent.replace(
+      '<head>',
+      `<head>
+    <title>SIZ Cosméticos - Beleza e Cuidados Pessoais</title>
+    <meta name="description" content="Loja de cosméticos e produtos de beleza premium. Encontre perfumes, maquiagem, skincare e muito mais." />
+    <link rel="icon" href="/favicon.ico" />`
+    );
+
+    // Escreve o arquivo modificado
+    fs.writeFileSync(clientIndexHtmlDest, indexHtmlContent);
+    console.log(`Arquivo index.html copiado e modificado para ${clientIndexHtmlDest}`);
+  } catch (error) {
+    console.error('Erro ao copiar arquivo index.html:', error);
+  }
+} else if (fs.existsSync(clientIndexHtmlDest)) {
+  console.log(`Arquivo index.html já existe em ${clientIndexHtmlDest}`);
+} else {
+  console.error(`Arquivo index.html não encontrado em ${clientIndexHtmlSrc}`);
+
+  // Cria um arquivo index.html básico se não existir
+  const basicIndexHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>SIZ Cosméticos - Beleza e Cuidados Pessoais</title>
+    <meta name="description" content="Loja de cosméticos e produtos de beleza premium. Encontre perfumes, maquiagem, skincare e muito mais." />
+    <link rel="icon" href="/favicon.ico" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>`;
+
+  fs.writeFileSync(clientIndexHtmlDest, basicIndexHtml);
+  console.log(`Arquivo index.html básico criado em ${clientIndexHtmlDest}`);
 }
 
 console.log('Build para Vercel concluído com sucesso!');
