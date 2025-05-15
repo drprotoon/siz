@@ -20,7 +20,8 @@
     "test-prod": "node scripts/test-production.js",
     "test-prod-build": "node scripts/test-prod-build.js",
     "test-build-serve": "node scripts/test-build-and-serve.js",
-    "test-auth": "node scripts/test-auth.js"
+    "test-auth": "node scripts/test-auth.js",
+    "vercel-build": "node scripts/vercel-deploy.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
