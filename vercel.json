@@ -15,7 +15,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/server/vercel.ts" }
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "env": {
     "NODE_ENV": "production",
