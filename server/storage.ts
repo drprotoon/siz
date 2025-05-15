@@ -130,12 +130,14 @@ export class MemStorage implements IStorage {
     this.cartItemCurrentId = 1;
 
     // Initialize with some data
-    this.initializeData();
+    this.initializeData().catch(err => {
+      console.error("Error initializing data:", err);
+    });
   }
 
-  private initializeData() {
+  private async initializeData() {
     // Create admin user
-    this.createUser({
+    await this.createUser({
       username: "admin",
       password: "$2b$10$jBtI6O6SlxZR4lzCE3j3T.OVEXzp6kTctd.KNysCj5Uc3GWdV13vG", // "admin123"
       email: "admin@beautyessence.com",
@@ -143,28 +145,29 @@ export class MemStorage implements IStorage {
     });
 
     // Create categories
-    const skincare = this.createCategory({
+    const skincare = await this.createCategory({
       name: "Skincare",
       slug: "skincare",
       description: "Products to keep your skin healthy and glowing",
       imageUrl: "https://images.unsplash.com/photo-1570194065650-d99fb4cb7300"
     });
 
-    const makeup = this.createCategory({
+    const makeup = await this.createCategory({
       name: "Makeup",
       slug: "makeup",
       description: "Cosmetics to enhance your natural beauty",
       imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9"
     });
 
-    const haircare = this.createCategory({
+    const haircare = await this.createCategory({
       name: "Haircare",
       slug: "haircare",
       description: "Products to keep your hair healthy and beautiful",
       imageUrl: "https://pixabay.com/get/g5ae87dd5119a8c4ac755124765852ad4db4dbfaeeac7458b3c2430be9eb639a536c26198fd7de142aea82305bbab4902f71988fdddfd242632ca7daa772e6fed_1280.jpg"
     });
 
-    const fragrance = this.createCategory({
+    // Fragrance category (not used in products)
+    await this.createCategory({
       name: "Fragrance",
       slug: "fragrance",
       description: "Scents that leave a lasting impression",
@@ -173,7 +176,7 @@ export class MemStorage implements IStorage {
 
     // Create products
     // Skincare products
-    this.createProduct({
+    await this.createProduct({
       name: "Hydrating Face Cream",
       slug: "hydrating-face-cream",
       description: "Our Hydrating Face Cream is specially formulated to provide intense hydration for all skin types. This luxurious cream features a blend of natural ingredients that work together to nourish, moisturize, and revitalize your skin.",
@@ -196,7 +199,7 @@ export class MemStorage implements IStorage {
       bestSeller: true
     });
 
-    this.createProduct({
+    await this.createProduct({
       name: "Vitamin C Brightening Serum",
       slug: "vitamin-c-brightening-serum",
       description: "Our Vitamin C Serum helps brighten skin tone, reduce fine lines, and protect against environmental damage. It's formulated with a stable form of vitamin C for maximum effectiveness.",
@@ -215,7 +218,7 @@ export class MemStorage implements IStorage {
     });
 
     // Makeup products
-    this.createProduct({
+    await this.createProduct({
       name: "Long-wear Foundation",
       slug: "long-wear-foundation",
       description: "A lightweight foundation that provides medium to full coverage with a natural matte finish. Long-lasting formula stays put for up to 24 hours.",
@@ -234,7 +237,7 @@ export class MemStorage implements IStorage {
     });
 
     // Haircare products
-    this.createProduct({
+    await this.createProduct({
       name: "Nourishing Hair Treatment Oil",
       slug: "nourishing-hair-treatment-oil",
       description: "A luxurious hair oil that repairs damaged strands, tames frizz, and adds shine. Formulated with a blend of natural oils to nourish and protect.",
@@ -278,7 +281,28 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userCurrentId++;
-    const user: User = { ...insertUser, id, createdAt: new Date() };
+    const user: User = {
+      id,
+      createdAt: new Date(),
+      username: insertUser.username,
+      password: insertUser.password,
+      email: insertUser.email,
+      name: insertUser.name || null,
+      fullName: insertUser.fullName || null,
+      address: insertUser.address || null,
+      addressNumber: insertUser.addressNumber || null,
+      addressComplement: insertUser.addressComplement || null,
+      district: insertUser.district || null,
+      city: insertUser.city || null,
+      state: insertUser.state || null,
+      postalCode: insertUser.postalCode || null,
+      country: insertUser.country || null,
+      phone: insertUser.phone || null,
+      cpf: insertUser.cpf || null,
+      birthdate: insertUser.birthdate || null,
+      role: insertUser.role || "customer",
+      updatedAt: insertUser.updatedAt || new Date()
+    };
     this.users.set(id, user);
     return user;
   }
@@ -309,7 +333,15 @@ export class MemStorage implements IStorage {
 
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
     const id = this.categoryCurrentId++;
-    const category: Category = { ...insertCategory, id };
+    const category: Category = {
+      id,
+      name: insertCategory.name,
+      slug: insertCategory.slug,
+      description: insertCategory.description || null,
+      imageUrl: insertCategory.imageUrl || null,
+      parentId: insertCategory.parentId || null,
+      order: insertCategory.order || null
+    };
     this.categories.set(id, category);
     return category;
   }
@@ -398,9 +430,24 @@ export class MemStorage implements IStorage {
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
     const id = this.productCurrentId++;
     const product: Product = {
-      ...insertProduct,
       id,
+      name: insertProduct.name,
+      slug: insertProduct.slug,
+      description: insertProduct.description || null,
       createdAt: new Date(),
+      price: insertProduct.price,
+      compareAtPrice: insertProduct.compareAtPrice || null,
+      sku: insertProduct.sku,
+      weight: insertProduct.weight,
+      quantity: insertProduct.quantity || 0,
+      categoryId: insertProduct.categoryId,
+      images: insertProduct.images || null,
+      ingredients: insertProduct.ingredients || null,
+      howToUse: insertProduct.howToUse || null,
+      visible: insertProduct.visible || false,
+      featured: insertProduct.featured || false,
+      newArrival: insertProduct.newArrival || false,
+      bestSeller: insertProduct.bestSeller || false,
       rating: "0",
       reviewCount: 0
     };
@@ -451,7 +498,7 @@ export class MemStorage implements IStorage {
             id: user!.id,
             username: user!.username,
             email: user!.email,
-            fullName: user!.fullName
+            fullName: user!.fullName || undefined
           }
         };
       })
@@ -476,7 +523,7 @@ export class MemStorage implements IStorage {
         id: user!.id,
         username: user!.username,
         email: user!.email,
-        fullName: user!.fullName
+        fullName: user!.fullName || undefined
       }
     };
   }
@@ -500,7 +547,7 @@ export class MemStorage implements IStorage {
             id: user!.id,
             username: user!.username,
             email: user!.email,
-            fullName: user!.fullName
+            fullName: user!.fullName || undefined
           }
         };
       })
@@ -509,7 +556,22 @@ export class MemStorage implements IStorage {
 
   async createOrder(insertOrder: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
     const id = this.orderCurrentId++;
-    const order: Order = { ...insertOrder, id, createdAt: new Date() };
+    const order: Order = {
+      id,
+      createdAt: new Date(),
+      userId: insertOrder.userId,
+      status: insertOrder.status || "pending",
+      total: insertOrder.total,
+      shippingAddress: insertOrder.shippingAddress,
+      shippingCity: insertOrder.shippingCity,
+      shippingState: insertOrder.shippingState,
+      shippingPostalCode: insertOrder.shippingPostalCode,
+      shippingCountry: insertOrder.shippingCountry,
+      shippingMethod: insertOrder.shippingMethod || null,
+      shippingCost: insertOrder.shippingCost || null,
+      paymentMethod: insertOrder.paymentMethod || null,
+      paymentId: insertOrder.paymentId || null
+    };
     this.orders.set(id, order);
 
     // Add order items
@@ -545,7 +607,15 @@ export class MemStorage implements IStorage {
 
   async createReview(insertReview: InsertReview): Promise<Review> {
     const id = this.reviewCurrentId++;
-    const review: Review = { ...insertReview, id, createdAt: new Date() };
+    const review: Review = {
+      id,
+      createdAt: new Date(),
+      rating: insertReview.rating,
+      userId: insertReview.userId,
+      productId: insertReview.productId,
+      title: insertReview.title || null,
+      comment: insertReview.comment || null
+    };
     this.reviews.set(id, review);
 
     // Update product rating
@@ -579,9 +649,9 @@ export class MemStorage implements IStorage {
         const newRating = reviews.length > 0 ? (totalRating / reviews.length).toFixed(1) : "0";
 
         await this.updateProduct(product.id, {
-          rating: newRating,
+          rating: sql`${newRating}`,
           reviewCount: reviews.length
-        });
+        } as any);
       }
     }
 
@@ -641,7 +711,14 @@ export class MemStorage implements IStorage {
 
     // Add new item
     const id = this.cartItemCurrentId++;
-    const cartItem: CartItem = { ...insertCartItem, id, createdAt: new Date() };
+    const cartItem: CartItem = {
+      id,
+      createdAt: new Date(),
+      quantity: insertCartItem.quantity,
+      productId: insertCartItem.productId,
+      userId: insertCartItem.userId || null,
+      sessionId: insertCartItem.sessionId || null
+    };
     this.cartItems.set(id, cartItem);
     return cartItem;
   }
@@ -744,7 +821,7 @@ export class MemStorage implements IStorage {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const newCustomers = users
-      .filter(user => user.role === "customer" && new Date(user.createdAt) >= thirtyDaysAgo)
+      .filter(user => user.role === "customer" && user.createdAt && new Date(user.createdAt) >= thirtyDaysAgo)
       .length;
 
     // Count low stock products (less than 10 items)
@@ -763,10 +840,6 @@ export class MemStorage implements IStorage {
 
 // Export the MemStorage for testing or fallback if needed
 export const memStorage = new MemStorage();
-
-import { db } from "./db";
-import { eq, and, desc, asc, sql, like, isNull, or } from "drizzle-orm";
-import { users, categories, products, orders, orderItems, reviews, cartItems } from "../shared/schema";
 
 export class DatabaseStorage implements IStorage {
   // USERS
@@ -857,7 +930,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+        query = query.where(and(...conditions)) as any;
       }
     }
 
@@ -1085,13 +1158,15 @@ export class DatabaseStorage implements IStorage {
           userId: typeof orderData.userId === 'string' ? parseInt(orderData.userId) : orderData.userId,
           status: orderData.status || 'pending',
           shippingAddress: orderData.shippingAddress,
+          shippingCity: orderData.shippingCity || '',
+          shippingState: orderData.shippingState || '',
+          shippingPostalCode: orderData.shippingPostalCode || '',
+          shippingCountry: orderData.shippingCountry || 'Brasil',
           shippingMethod: orderData.shippingMethod,
-          payment: orderData.payment,
-          subtotal: orderData.subtotal,
+          paymentMethod: orderData.payment,
           shippingCost: orderData.shippingCost,
           total: orderData.total,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          paymentId: null
         })
         .returning();
 
@@ -1152,7 +1227,7 @@ export class DatabaseStorage implements IStorage {
       await this.updateProduct(insertReview.productId, {
         rating: avgRating,
         reviewCount: productReviews.length
-      } as any);
+      });
     }
 
     return review;
@@ -1173,12 +1248,12 @@ export class DatabaseStorage implements IStorage {
       await this.updateProduct(review.productId, {
         rating: avgRating,
         reviewCount: productReviews.length
-      } as any);
+      });
     } else {
       await this.updateProduct(review.productId, {
         rating: "0.0",
         reviewCount: 0
-      } as any);
+      });
     }
 
     return true;

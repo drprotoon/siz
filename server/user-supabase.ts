@@ -27,7 +27,7 @@ export async function saveUserProfileToSupabase(userId: string, profileData: any
     }
 
     // Preparar dados para inserção/atualização
-    const userData = {
+    const userData: any = {
       id: parseInt(userId),
       name: profileData.name,
       email: profileData.email,

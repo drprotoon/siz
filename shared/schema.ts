@@ -52,7 +52,7 @@ export const categories = pgTable("categories", {
   description: text("description"),
   imageUrl: text("image_url"),
   parentId: integer("parent_id"),
-  order: integer("order").default(0)
+  order: integer("order").default(sql`0`)
 });
 
 export const insertCategorySchema = createInsertSchema(categories)
@@ -68,7 +68,7 @@ export const products = pgTable("products", {
   compareAtPrice: numeric("compare_at_price", { precision: 10, scale: 2 }),
   sku: text("sku").notNull().unique(),
   weight: numeric("weight", { precision: 6, scale: 2 }).notNull(),
-  quantity: integer("quantity").notNull().default(0),
+  quantity: integer("quantity").notNull().default(sql`0`),
   categoryId: integer("category_id").notNull(),
   images: getArrayType(), // Usa a função auxiliar para determinar o tipo correto
   ingredients: text("ingredients"),
@@ -77,13 +77,23 @@ export const products = pgTable("products", {
   featured: boolean("featured").default(false),
   newArrival: boolean("new_arrival").default(false),
   bestSeller: boolean("best_seller").default(false),
-  rating: numeric("rating", { precision: 3, scale: 1 }).default(0),
-  reviewCount: integer("review_count").default(0),
+  rating: numeric("rating", { precision: 3, scale: 1 }).default(sql`0`),
+  reviewCount: integer("review_count").default(sql`0`),
   createdAt: timestamp("created_at").defaultNow()
 });
 
 export const insertProductSchema = createInsertSchema(products)
-  .omit({ id: true, createdAt: true, rating: true, reviewCount: true });
+  .omit({ id: true, createdAt: true })
+  .extend({
+    // Garantir que os campos opcionais sejam tratados corretamente
+    description: z.string().nullable().optional(),
+    compareAtPrice: z.string().nullable().optional(),
+    images: z.union([z.string(), z.array(z.string())]).nullable().optional(),
+    ingredients: z.string().nullable().optional(),
+    howToUse: z.string().nullable().optional(),
+    rating: z.string().nullable().optional(),
+    reviewCount: z.number().nullable().optional()
+  });
 
 // Order schema
 export const orders = pgTable("orders", {

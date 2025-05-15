@@ -10,11 +10,19 @@ import MemoryStore from 'memorystore';
 import { ensureImagesArray } from '../server/utils.js';
 import multer from 'multer';
 import axios from 'axios';
-import { initStorageService } from '../server/storage-service.js';
+import {
+  initStorageService,
+  uploadFile,
+  listBucketImages,
+  listBucketFolders,
+  createNestedFoldersInBucket
+} from '../server/storage-service.js';
 import os from 'os';
 
 // Inicializa o serviço de armazenamento quando o servidor inicia
+console.log('Inicializando serviço de armazenamento...');
 initStorageService();
+console.log('Serviço de armazenamento inicializado com sucesso!');
 
 // Create Express app
 const app = express();
@@ -31,8 +39,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Configuração do multer para upload de arquivos (não usado neste arquivo, mas mantido para referência)
-multer({
+// Configuração do multer para upload de arquivos
+const upload = multer({
   dest: os.tmpdir(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
@@ -103,9 +111,7 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Authentication middleware (definidos mas não usados neste arquivo - mantidos para referência)
-// Estes middlewares são usados no arquivo server/routes.ts original
-/*
+// Authentication middleware
 const isAuthenticated = (req, res, next) => {
   if (req.isAuthenticated()) {
     return next();
@@ -136,7 +142,6 @@ const isAdminOrDev = (req, res, next) => {
   console.log("Access denied: User is not authenticated as admin");
   res.status(403).json({ message: "Forbidden" });
 };
-*/
 
 // Rotas da API
 app.get('/api/hello', (_req, res) => {
@@ -527,6 +532,264 @@ app.get("/api/address/:cep", async (req, res) => {
   }
 });
 
+// Wishlist routes
+// Importante: a rota específica com parâmetros deve vir antes da rota genérica
+app.get("/api/wishlist/check/:productId", isAuthenticated, async (req, res) => {
+  try {
+    const productId = parseInt(req.params.productId);
+    const isInWishlist = await storage.isProductInWishlist(req.user.id, productId);
+    res.json({ isInWishlist });
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao verificar produto na lista de desejos" });
+  }
+});
+
+app.get("/api/wishlist", isAuthenticated, async (req, res) => {
+  try {
+    const wishlistItems = await storage.getUserWishlistWithProducts(req.user.id);
+    res.json(wishlistItems);
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao buscar lista de desejos" });
+  }
+});
+
+app.post("/api/wishlist", isAuthenticated, async (req, res) => {
+  try {
+    const wishlistItemData = {
+      ...req.body,
+      userId: req.user.id
+    };
+
+    // Check if product exists
+    const product = await storage.getProduct(wishlistItemData.productId);
+    if (!product) {
+      return res.status(404).json({ message: "Produto não encontrado" });
+    }
+
+    const wishlistItem = await storage.addToWishlist(wishlistItemData);
+    res.status(201).json(wishlistItem);
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao adicionar à lista de desejos" });
+  }
+});
+
+app.delete("/api/wishlist/:id", isAuthenticated, async (req, res) => {
+  try {
+    const wishlistItemId = parseInt(req.params.id);
+
+    // Get the wishlist item to verify ownership
+    const wishlistItems = await storage.getUserWishlist(req.user.id);
+    const wishlistItem = wishlistItems.find(item => item.id === wishlistItemId);
+
+    if (!wishlistItem) {
+      return res.status(404).json({ message: "Item não encontrado na lista de desejos" });
+    }
+
+    const success = await storage.removeFromWishlist(wishlistItemId);
+
+    if (!success) {
+      return res.status(404).json({ message: "Item não encontrado na lista de desejos" });
+    }
+
+    res.json({ message: "Item removido da lista de desejos" });
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao remover da lista de desejos" });
+  }
+});
+
+// Order routes
+app.get("/api/orders", isAuthenticated, async (req, res) => {
+  try {
+    let orders;
+
+    if (req.user.role === "admin") {
+      orders = await storage.getOrdersWithItems();
+    } else {
+      orders = await storage.getUserOrdersWithItems(req.user.id);
+    }
+
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching orders" });
+  }
+});
+
+app.get("/api/orders/:id", isAuthenticated, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const order = await storage.getOrderWithItems(orderId);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Check if user is admin or the order belongs to the user
+    if (req.user.role !== "admin" && order.userId !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching order" });
+  }
+});
+
+// Admin dashboard stats
+app.get("/api/admin/stats", isAdmin, async (_req, res) => {
+  try {
+    const stats = await storage.getStats();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching stats" });
+  }
+});
+
+// Endpoint para upload de imagens
+app.post('/api/upload', isAdminOrDev, upload.array('images', 10), async (req, res) => {
+  try {
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({ message: 'Nenhum arquivo enviado' });
+    }
+
+    // Obtém a categoria do produto
+    let categorySlug = 'outros';
+    if (req.body.categoryId) {
+      const categoryId = parseInt(req.body.categoryId);
+      const category = await storage.getCategory(categoryId);
+      if (category) {
+        categorySlug = category.slug;
+      }
+    }
+
+    // Processa cada arquivo
+    const uploadResults = [];
+    for (const file of req.files) {
+      try {
+        // Determina o caminho no bucket
+        const bucketPath = `products/${categorySlug}/${file.originalname}`;
+
+        // Faz o upload do arquivo
+        const result = await uploadFile(file.path, bucketPath);
+
+        // Adiciona o resultado ao array
+        uploadResults.push({
+          originalName: file.originalname,
+          bucketPath,
+          publicUrl: result.publicUrl,
+          success: true
+        });
+      } catch (uploadError) {
+        console.error(`Erro ao fazer upload do arquivo ${file.originalname}:`, uploadError);
+        uploadResults.push({
+          originalName: file.originalname,
+          success: false,
+          error: uploadError.message
+        });
+      }
+    }
+
+    res.json({
+      message: `${uploadResults.filter(r => r.success).length} de ${req.files.length} arquivos enviados com sucesso`,
+      files: uploadResults
+    });
+  } catch (error) {
+    console.error('Erro no upload de imagens:', error);
+    res.status(500).json({
+      message: 'Erro no upload de imagens',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint para criar pastas no bucket do Supabase
+app.post('/api/storage/folders', isAdminOrDev, async (req, res) => {
+  try {
+    const { path } = req.body;
+
+    if (!path) {
+      return res.status(400).json({
+        success: false,
+        message: 'Caminho da pasta não especificado'
+      });
+    }
+
+    console.log(`API: Creating folder structure: ${path}`);
+
+    // Cria a estrutura de pastas
+    const success = await createNestedFoldersInBucket(path);
+
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Falha ao criar estrutura de pastas'
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Estrutura de pastas '${path}' criada com sucesso`
+    });
+  } catch (error) {
+    console.error('Erro ao criar pasta no bucket:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao criar pasta no bucket',
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    });
+  }
+});
+
+// Endpoint para listar pastas do bucket do Supabase
+app.get('/api/storage/folders', isAdminOrDev, async (req, res) => {
+  try {
+    const { path, includeFullPath } = req.query;
+    console.log(`API: Listing folders from path: ${path || 'root'}, includeFullPath: ${includeFullPath}`);
+
+    // Listar pastas do bucket
+    let folders = await listBucketFolders(
+      path || '',
+      includeFullPath === 'true'
+    );
+    console.log(`API: Found ${folders.length} folders`);
+
+    return res.json({
+      success: true,
+      folders
+    });
+  } catch (error) {
+    console.error('Erro ao listar pastas do bucket:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao listar pastas do bucket',
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    });
+  }
+});
+
+// Endpoint para listar imagens do bucket do Supabase
+app.get('/api/storage/images', isAdminOrDev, async (req, res) => {
+  try {
+    const { path } = req.query;
+    console.log(`API: Listing images from path: ${path || 'root'}`);
+
+    // Listar imagens do bucket
+    const images = await listBucketImages(path || '');
+    console.log(`API: Found ${images.length} images`);
+
+    return res.json({
+      success: true,
+      images
+    });
+  } catch (error) {
+    console.error('Erro ao listar imagens do bucket:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao listar imagens do bucket',
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    });
+  }
+});
+
 // Rota de teste
 app.get('/api/test', (req, res) => {
   res.json({
@@ -537,6 +800,12 @@ app.get('/api/test', (req, res) => {
     vercel: process.env.VERCEL === '1' ? 'true' : 'false',
     nodeEnv: process.env.NODE_ENV || 'development'
   });
+});
+
+// Middleware para logging de todas as requisições
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
 });
 
 // Rota de fallback para endpoints não encontrados
@@ -551,6 +820,31 @@ app.all('*', (req, res) => {
 
 // Log para indicar que a API está pronta
 console.log('API handler for Vercel initialized with real database connection');
+console.log('Rotas disponíveis:');
+console.log('- GET /api/hello');
+console.log('- POST /api/auth/login');
+console.log('- POST /api/auth/logout');
+console.log('- GET /api/auth/me');
+console.log('- POST /api/auth/register');
+console.log('- GET /api/categories');
+console.log('- GET /api/categories/:slug');
+console.log('- GET /api/products');
+console.log('- GET /api/products/:slug');
+console.log('- GET /api/cart');
+console.log('- POST /api/cart');
+console.log('- DELETE /api/cart/:id');
+console.log('- GET /api/wishlist/check/:productId');
+console.log('- GET /api/wishlist');
+console.log('- POST /api/wishlist');
+console.log('- DELETE /api/wishlist/:id');
+console.log('- GET /api/orders');
+console.log('- GET /api/orders/:id');
+console.log('- GET /api/admin/stats');
+console.log('- POST /api/upload');
+console.log('- POST /api/storage/folders');
+console.log('- GET /api/storage/folders');
+console.log('- GET /api/storage/images');
+console.log('- GET /api/test');
 
 // Export the Express API
 export default app;

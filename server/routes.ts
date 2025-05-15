@@ -548,7 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const reviewData = insertReviewSchema.parse({
         ...req.body,
         productId,
-        userId: req.user.id
+        userId: req.user?.id || 0
       });
 
       const newReview = await storage.createReview(reviewData);
@@ -714,7 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Wishlist routes
   app.get("/api/wishlist", isAuthenticated, async (req, res) => {
     try {
-      const wishlistItems = await storage.getUserWishlistWithProducts(req.user.id);
+      const wishlistItems = await storage.getUserWishlistWithProducts(req.user?.id || 0);
       res.json(wishlistItems);
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar lista de desejos" });
@@ -725,7 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const wishlistItemData = insertWishlistItemSchema.parse({
         ...req.body,
-        userId: req.user.id
+        userId: req.user?.id || 0
       });
 
       // Check if product exists
@@ -750,7 +750,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const wishlistItemId = parseInt(req.params.id);
 
       // Get the wishlist item to verify ownership
-      const wishlistItems = await storage.getUserWishlist(req.user.id);
+      const wishlistItems = await storage.getUserWishlist(req.user?.id || 0);
       const wishlistItem = wishlistItems.find(item => item.id === wishlistItemId);
 
       if (!wishlistItem) {
@@ -772,7 +772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wishlist/check/:productId", isAuthenticated, async (req, res) => {
     try {
       const productId = parseInt(req.params.productId);
-      const isInWishlist = await storage.isProductInWishlist(req.user.id, productId);
+      const isInWishlist = await storage.isProductInWishlist(req.user?.id || 0, productId);
       res.json({ isInWishlist });
     } catch (error) {
       res.status(500).json({ message: "Erro ao verificar produto na lista de desejos" });
@@ -786,10 +786,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let orders;
 
-      if (req.user.role === "admin") {
+      if (req.user?.role === "admin") {
         orders = await storage.getOrdersWithItems();
       } else {
-        orders = await storage.getUserOrdersWithItems(req.user.id);
+        orders = await storage.getUserOrdersWithItems(req.user?.id || 0);
       }
 
       res.json(orders);
@@ -808,7 +808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user is admin or the order belongs to the user
-      if (req.user.role !== "admin" && order.userId !== req.user.id) {
+      if (req.user?.role !== "admin" && order.userId !== req.user?.id) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -824,7 +824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const orderData = insertOrderSchema.parse({
         ...order,
-        userId: req.user.id
+        userId: req.user?.id || 0
       });
 
       // Validate items
@@ -863,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newOrder = await storage.createOrder(orderDataWithItems);
 
       // Clear the user's cart
-      await storage.clearCart(req.user.id);
+      await storage.clearCart(req.user?.id || 0);
 
       res.status(201).json(newOrder);
     } catch (error) {
