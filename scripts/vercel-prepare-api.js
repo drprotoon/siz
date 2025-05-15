@@ -190,4 +190,35 @@ console.log('Arquivo api/index.js atualizado com versão simplificada');
 fs.copyFileSync(path.join(apiDir, 'index.js'), path.join(distApiDir, 'index.js'));
 console.log('Arquivo api/index.js copiado para dist/api/index.js');
 
+// Copiar o arquivo 404.js para dist/api se existir
+const api404Path = path.join(apiDir, '404.js');
+if (fs.existsSync(api404Path)) {
+  fs.copyFileSync(api404Path, path.join(distApiDir, '404.js'));
+  console.log('Arquivo api/404.js copiado para dist/api/404.js');
+}
+
+// Copiar outros arquivos da API
+const apiFiles = ['auth.js', 'products.js', 'categories.js'];
+for (const file of apiFiles) {
+  const srcPath = path.join(apiDir, file);
+  if (fs.existsSync(srcPath)) {
+    fs.copyFileSync(srcPath, path.join(distApiDir, file));
+    console.log(`Arquivo api/${file} copiado para dist/api/${file}`);
+  }
+}
+
+// Criar um arquivo de verificação para garantir que a API está funcionando
+const healthCheckContent = `// API health check handler for Vercel
+export default function handler(req, res) {
+  res.status(200).json({
+    status: 'ok',
+    message: 'API is running',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
+}`;
+
+fs.writeFileSync(path.join(distApiDir, 'health.js'), healthCheckContent);
+console.log('Arquivo health.js criado em dist/api/health.js');
+
 console.log('✅ API preparada para o Vercel com sucesso');
