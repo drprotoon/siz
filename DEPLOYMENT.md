@@ -26,16 +26,16 @@ This document provides instructions for deploying the SIZ Cosméticos applicatio
 
 6. Fixed TypeScript issues in vite.config.ts
 
-7. Simplified the build process:
-   - Updated vercel.json to use a direct build command
-   - Made build scripts more resilient to environment differences
+7. Created a specialized Vercel build process:
+   - Added a setup-vercel-config.js script to create proper config files during build
+   - Updated vercel.json to use the vercel-build script
+   - Made build scripts resilient to environment differences
    - Added fallbacks for missing Tailwind plugins
 
-8. Created proper module format versions of configuration files:
-   - Added tailwind.config.cjs for CommonJS support
-   - Added vite.config.cjs for CommonJS support
-   - Added postcss.config.cjs for CommonJS support
-   - Updated existing config files to use proper ES module syntax
+8. Fixed module format issues:
+   - Removed problematic postcss.config.js file
+   - Added proper CommonJS config files with .cjs extension
+   - Created a script to generate the correct config files during build
 
 9. Fixed TypeScript issues in configuration files:
    - Removed deprecated property usage

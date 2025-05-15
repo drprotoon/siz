@@ -5,12 +5,36 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 console.log('Setting up configuration files for Vercel deployment...');
+
+// Verificar se estamos no ambiente Vercel
+const isVercel = process.env.VERCEL === '1';
+console.log(`Ambiente Vercel: ${isVercel ? 'Sim' : 'Não'}`);
+
+// Garantir que todas as dependências estejam instaladas
+try {
+  console.log('Verificando dependências do Tailwind...');
+
+  // Verificar se o tailwindcss está instalado
+  try {
+    require.resolve('tailwindcss');
+    console.log('✅ tailwindcss já está instalado');
+  } catch (e) {
+    console.log('⚠️ tailwindcss não encontrado, instalando...');
+    execSync('npm install --no-save tailwindcss autoprefixer postcss @tailwindcss/typography tailwindcss-animate', {
+      stdio: 'inherit',
+      cwd: rootDir
+    });
+  }
+} catch (error) {
+  console.error('❌ Erro ao verificar dependências:', error.message);
+}
 
 // Create postcss.config.cjs
 const postcssConfigPath = path.join(rootDir, 'postcss.config.cjs');
