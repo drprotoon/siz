@@ -18,17 +18,25 @@ console.log('Iniciando build simplificado para Vercel...');
 const isVercel = process.env.VERCEL === '1';
 console.log(`Ambiente Vercel: ${isVercel ? 'Sim' : 'Não'}`);
 
-// Instala as dependências necessárias para o build
-console.log('Instalando dependências necessárias para o build...');
-try {
-  // Instala autoprefixer e outras dependências necessárias
-  execSync('npm install --no-save autoprefixer postcss tailwindcss tailwindcss-animate @tailwindcss/typography', {
-    stdio: 'inherit',
-    cwd: rootDir
-  });
-  console.log('✅ Dependências instaladas com sucesso!');
-} catch (error) {
-  console.error('❌ Erro ao instalar dependências:', error.message);
+// No Vercel, as dependências já devem estar instaladas
+// Vamos apenas verificar se estamos no ambiente Vercel
+console.log('Verificando ambiente de build...');
+if (isVercel) {
+  console.log('Ambiente Vercel detectado. Pulando instalação manual de dependências.');
+} else {
+  // Em ambientes locais, tentamos instalar as dependências
+  console.log('Instalando dependências necessárias para o build...');
+  try {
+    // Instala autoprefixer e outras dependências necessárias
+    execSync('npm install --no-save autoprefixer postcss tailwindcss tailwindcss-animate @tailwindcss/typography', {
+      stdio: 'inherit',
+      cwd: rootDir
+    });
+    console.log('✅ Dependências instaladas com sucesso!');
+  } catch (error) {
+    console.error('❌ Erro ao instalar dependências:', error.message);
+    console.log('Continuando o build mesmo sem instalar dependências...');
+  }
 }
 
 // Função para executar um comando e continuar mesmo se falhar

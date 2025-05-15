@@ -22,7 +22,8 @@ const indexHtmlPath = path.join(publicDir, 'index.html');
 // Verifica se o diretório assets existe
 if (!fs.existsSync(assetsDir)) {
   console.warn(`Diretório de assets não encontrado: ${assetsDir}`);
-  process.exit(1);
+  console.log('Criando diretório de assets...');
+  fs.mkdirSync(assetsDir, { recursive: true });
 }
 
 // Lista todos os arquivos no diretório assets
@@ -36,19 +37,19 @@ const cssFiles = files.filter(file => file.endsWith('.css'));
 if (cssFiles.length === 0) {
   console.warn('Nenhum arquivo CSS encontrado no diretório assets!');
   console.warn('Verificando se o CSS está embutido no JavaScript...');
-  
+
   // Procura por arquivos JavaScript
   const jsFiles = files.filter(file => file.endsWith('.js'));
-  
+
   if (jsFiles.length === 0) {
     console.error('Nenhum arquivo JavaScript encontrado no diretório assets!');
     process.exit(1);
   }
-  
+
   // Verifica se o CSS está embutido no JavaScript
   const jsFilePath = path.join(assetsDir, jsFiles[0]);
   const jsContent = fs.readFileSync(jsFilePath, 'utf-8');
-  
+
   if (jsContent.includes('styleSheet') || jsContent.includes('insertCSS') || jsContent.includes('injectStyle')) {
     console.log('CSS parece estar embutido no JavaScript. Isso é normal em alguns builds do Vite.');
   } else {
@@ -56,11 +57,11 @@ if (cssFiles.length === 0) {
   }
 } else {
   console.log(`Arquivos CSS encontrados: ${cssFiles.join(', ')}`);
-  
+
   // Verifica se o index.html inclui os arquivos CSS
   if (fs.existsSync(indexHtmlPath)) {
     const indexHtmlContent = fs.readFileSync(indexHtmlPath, 'utf-8');
-    
+
     // Verifica se cada arquivo CSS está incluído no index.html
     let missingCssFiles = [];
     for (const cssFile of cssFiles) {
@@ -68,23 +69,23 @@ if (cssFiles.length === 0) {
         missingCssFiles.push(cssFile);
       }
     }
-    
+
     if (missingCssFiles.length > 0) {
       console.warn(`Arquivos CSS não incluídos no index.html: ${missingCssFiles.join(', ')}`);
       console.log('Atualizando index.html para incluir os arquivos CSS...');
-      
+
       // Adiciona os arquivos CSS ao head
       let updatedHtmlContent = indexHtmlContent;
-      const cssLinks = missingCssFiles.map(cssFile => 
+      const cssLinks = missingCssFiles.map(cssFile =>
         `<link rel="stylesheet" href="/assets/${cssFile}" />`
       ).join('\n    ');
-      
+
       // Adiciona os links CSS antes do fechamento da tag head
       updatedHtmlContent = updatedHtmlContent.replace(
         '</head>',
         `    ${cssLinks}\n  </head>`
       );
-      
+
       // Escreve o arquivo modificado
       fs.writeFileSync(indexHtmlPath, updatedHtmlContent);
       console.log('index.html atualizado com sucesso!');

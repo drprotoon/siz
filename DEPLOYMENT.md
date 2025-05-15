@@ -26,6 +26,21 @@ This document provides instructions for deploying the SIZ Cosméticos applicatio
 
 6. Fixed TypeScript issues in vite.config.ts
 
+7. Simplified the build process:
+   - Updated vercel.json to use a direct build command
+   - Made build scripts more resilient to environment differences
+   - Added fallbacks for missing Tailwind plugins
+
+8. Created CommonJS versions of configuration files:
+   - Added tailwind.config.js alongside tailwind.config.ts
+   - Added vite.config.js alongside vite.config.ts
+   - Updated postcss.config.js to support both ESM and CommonJS
+
+9. Fixed TypeScript issues in configuration files:
+   - Removed deprecated property usage
+   - Added proper null checking
+   - Used fileURLToPath for proper path resolution
+
 ## Deployment Steps
 
 ### GitHub Deployment
@@ -74,13 +89,17 @@ If you encounter issues during deployment:
 
 ### Common Issues and Solutions
 
-1. **Missing dependencies**: If you see errors about missing dependencies, make sure they are properly listed in package.json.
+1. **Missing dependencies**: If you see errors about missing dependencies, the build script now automatically installs required dependencies during the build process.
 
 2. **Build errors with Replit plugins**: We've removed Replit-specific plugins that were causing issues with Vercel deployment.
 
 3. **CSS not loading**: The build process now includes scripts to ensure CSS files are properly included in the build.
 
 4. **API routes not working**: Make sure the vercel.json file is properly configured to route API requests to the correct handler.
+
+5. **PostCSS or Tailwind errors**: We've added fallback configurations for both PostCSS and Tailwind to ensure they work in different environments.
+
+6. **Module format issues**: We've provided both ESM and CommonJS versions of configuration files to support different module systems.
 
 ## Local Testing
 
