@@ -53,3 +53,5 @@ LICENSE
 !tsconfig.server.vercel.json
 !server
 !shared
+!index.html
+!scripts/vercel-simple-deploy.js

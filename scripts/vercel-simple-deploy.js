@@ -142,7 +142,7 @@ console.log('✅ Arquivo server.js criado com sucesso');
 
 // Criar package.json para a API
 console.log('Criando package.json para a API...');
-const packageJson = {
+const apiPackageJson = {
   "name": "siz-api",
   "version": "1.0.0",
   "type": "module",
@@ -155,8 +155,22 @@ const packageJson = {
   }
 };
 
-fs.writeFileSync(path.join(apiDir, 'package.json'), JSON.stringify(packageJson, null, 2));
-console.log('✅ Arquivo package.json criado com sucesso');
+fs.writeFileSync(path.join(apiDir, 'package.json'), JSON.stringify(apiPackageJson, null, 2));
+console.log('✅ Arquivo package.json para API criado com sucesso');
+
+// Criar package.json para o diretório public
+console.log('Criando package.json para o diretório public...');
+const staticPackageJson = {
+  "name": "siz-static",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  }
+};
+
+fs.writeFileSync(path.join(publicDir, 'package.json'), JSON.stringify(staticPackageJson, null, 2));
+console.log('✅ Arquivo package.json para diretório public criado com sucesso');
 
 // Criar um arquivo index.html básico
 console.log('Criando arquivo index.html básico...');
@@ -175,12 +189,16 @@ const indexHtml = `<!DOCTYPE html>
   </body>
 </html>`;
 
-// Verificar se o arquivo index.html já existe no diretório public
-if (!fs.existsSync(path.join(publicDir, 'index.html'))) {
+// Verificar se existe um arquivo index.html na raiz do projeto
+const rootIndexPath = path.join(rootDir, 'index.html');
+if (fs.existsSync(rootIndexPath)) {
+  // Copiar o arquivo index.html da raiz para o diretório public
+  fs.copyFileSync(rootIndexPath, path.join(publicDir, 'index.html'));
+  console.log('✅ Arquivo index.html copiado da raiz para o diretório public');
+} else {
+  // Criar um novo arquivo index.html no diretório public
   fs.writeFileSync(path.join(publicDir, 'index.html'), indexHtml);
   console.log('✅ Arquivo index.html criado com sucesso');
-} else {
-  console.log('⚠️ Arquivo index.html já existe, mantendo o existente');
 }
 
 // Criar um arquivo vercel.json simplificado
@@ -192,6 +210,11 @@ const vercelJson = {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/server.js" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/api/(.*)", "dest": "/api/server.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "builds": [
     {
