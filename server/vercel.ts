@@ -42,9 +42,9 @@ function serveStatic(app: express.Express) {
   app.use(express.static(distPath));
 
   // Adiciona middleware para lidar com rotas do cliente
-  app.use("*", (req, res) => {
+  app.use("*", (req: express.Request, res: express.Response) => {
     // Ignora requisições de API (já tratadas pelas rotas)
-    if (req.originalUrl.startsWith('/api')) {
+    if (req.originalUrl && req.originalUrl.startsWith('/api')) {
       console.log(`API endpoint não encontrado: ${req.originalUrl}`);
       return res.status(404).json({
         message: "API endpoint not found",
@@ -56,7 +56,7 @@ function serveStatic(app: express.Express) {
     const indexPath = path.resolve(distPath, "index.html");
 
     if (fs.existsSync(indexPath)) {
-      console.log(`Serving index.html for client-side route: ${req.originalUrl}`);
+      console.log(`Serving index.html for client-side route: ${req.originalUrl || '/'}`);
       res.sendFile(indexPath);
     } else {
       console.warn(`Warning: index.html not found at ${indexPath}`);
