@@ -1,13 +1,13 @@
 {
   "name": "rest-express",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "vite build && tsc -p tsconfig.server.json && node scripts/build-server.js",
     "postbuild": "node scripts/ensure-css.js && node scripts/copy-index-html.js",
-    "vercel-build": "npm install typescript@4.9.5 ts-node tailwindcss autoprefixer postcss @tailwindcss/typography tailwindcss-animate drizzle-orm pg dotenv @supabase/supabase-js bcrypt cors express express-session passport passport-local memorystore @types/bcrypt @types/pg @types/node @types/fs-extra @types/express @types/cors @types/passport && node scripts/setup-vercel-config.js && vite build --config vite.config.cjs && node scripts/vercel-prepare-api.js && node scripts/ensure-vercel-files.js",
+    "vercel-build": "npm install typescript@4.9.5 ts-node tailwindcss autoprefixer postcss @tailwindcss/typography tailwindcss-animate drizzle-orm pg dotenv @supabase/supabase-js bcrypt cors express express-session passport passport-local memorystore fast-xml-parser axios multer uuid fs-extra @types/bcrypt @types/pg @types/node @types/fs-extra @types/express @types/cors @types/passport @types/multer @types/uuid && node scripts/setup-vercel-config.js && vite build --config vite.config.cjs && node scripts/vercel-prepare-api.js && node scripts/ensure-vercel-files.js",
     "start": "NODE_ENV=production node dist/server/index.js",
     "check": "tsc",
     "deploy": "node scripts/force-deploy.js",
