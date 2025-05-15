@@ -31,10 +31,11 @@ This document provides instructions for deploying the SIZ Cosméticos applicatio
    - Made build scripts more resilient to environment differences
    - Added fallbacks for missing Tailwind plugins
 
-8. Created CommonJS versions of configuration files:
-   - Added tailwind.config.js alongside tailwind.config.ts
-   - Added vite.config.js alongside vite.config.ts
-   - Updated postcss.config.js to support both ESM and CommonJS
+8. Created proper module format versions of configuration files:
+   - Added tailwind.config.cjs for CommonJS support
+   - Added vite.config.cjs for CommonJS support
+   - Added postcss.config.cjs for CommonJS support
+   - Updated existing config files to use proper ES module syntax
 
 9. Fixed TypeScript issues in configuration files:
    - Removed deprecated property usage
@@ -97,9 +98,15 @@ If you encounter issues during deployment:
 
 4. **API routes not working**: Make sure the vercel.json file is properly configured to route API requests to the correct handler.
 
-5. **PostCSS or Tailwind errors**: We've added fallback configurations for both PostCSS and Tailwind to ensure they work in different environments.
+5. **PostCSS or Tailwind errors**: We've added proper .cjs versions of configuration files to ensure they work in different environments.
 
-6. **Module format issues**: We've provided both ESM and CommonJS versions of configuration files to support different module systems.
+6. **Module format issues**: We've provided both ESM and CommonJS versions of configuration files with the correct file extensions (.js for ESM and .cjs for CommonJS).
+
+7. **Vercel deployment settings**: For Vercel, use these settings:
+   - Build Command: `npm run vercel-build`
+   - Output Directory: `dist/public`
+   - Install Command: `npm install`
+   - Framework Preset: Other
 
 ## Local Testing
 

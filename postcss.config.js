@@ -1,12 +1,5 @@
+// Using ES modules syntax only since package.json has "type": "module"
 export default {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-}
-
-// This is a fallback for CommonJS environments
-module.exports = {
   plugins: {
     tailwindcss: {},
     autoprefixer: {},
