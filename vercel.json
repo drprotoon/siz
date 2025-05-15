@@ -1,37 +1,17 @@
 {
   "version": 2,
-  "framework": null,
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "node scripts/vercel-simple-deploy.js",
   "outputDirectory": "dist/public",
-  "installCommand": "npm install --production=false",
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Credentials", "value": "true" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" }
-      ]
-    }
-  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/server.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "env": {
-    "NODE_ENV": "production",
-    "VERCEL": "1",
-    "DISABLE_SECURE_COOKIE": "true",
-    "TS_NODE_TRANSPILE_ONLY": "true",
-    "NODE_VERSION": "18.x"
-  },
   "builds": [
     {
       "src": "api/server.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["api/**", "server/**", "shared/**", "types.d.ts"],
-        "nodeVersion": "18.x"
+        "includeFiles": ["api/**"]
       }
     },
     {

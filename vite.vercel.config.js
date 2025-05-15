@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 // Get the directory name of the current module
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Simplified config for Vercel
+// Simplified config for Vercel - Extremamente simplificado
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -23,9 +23,10 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       output: {
-        assetFileNames: 'assets/[name].[hash][extname]',
-        entryFileNames: 'assets/[name].[hash].js',
-        chunkFileNames: 'assets/[name].[hash].js',
+        // Nomes de arquivos simplificados sem hash para facilitar referência
+        assetFileNames: 'assets/[name][extname]',
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: 'assets/[name].js',
       }
     }
   },
