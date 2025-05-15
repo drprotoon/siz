@@ -30,6 +30,11 @@ declare module 'pg';
 declare module 'drizzle-orm';
 declare module 'drizzle-orm/node-postgres';
 declare module '@supabase/supabase-js';
+declare module 'fast-xml-parser';
+declare module 'axios';
+declare module 'multer';
+declare module 'uuid';
+declare module 'fs-extra';
 
 // Tipos para o Supabase Storage
 interface StorageItem {
