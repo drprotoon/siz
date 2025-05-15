@@ -1,5 +1,42 @@
+# Version control
 .git
+.github
+
+# Dependencies
 node_modules
+
+# Environment variables (except Vercel-specific)
 .env
 .env.*
 !.env.vercel
+
+# Development files
+.vscode
+.idea
+.DS_Store
+
+# Test files
+__tests__
+test
+tests
+*.test.js
+*.spec.js
+
+# Config files
+.eslintrc
+.prettierrc
+.babelrc
+tsconfig.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Documentation
+README.md
+LICENSE
+*.md
+!VERCEL_DEPLOY.md

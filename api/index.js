@@ -1,8 +1,8 @@
-// API handler for Vercel serverless functions
+// Simplified API handler for Vercel serverless functions
 import express from 'express';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // Setup for ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -16,38 +16,20 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Import routes dynamically
-const registerRoutes = async () => {
-  try {
-    // Dynamic import for the routes
-    const { registerRoutes } = await import('../dist/index.js');
-    return registerRoutes(app);
-  } catch (error) {
-    console.error('Error importing routes:', error);
-    // Fallback API endpoint if routes can't be imported
-    app.get('/api/hello', (req, res) => {
-      res.json({ message: 'Hello from Vercel API!', error: error.message });
-    });
-  }
-};
+// Simple API endpoint for testing
+app.get('/api/hello', (req, res) => {
+  res.json({
+    message: 'Hello from SIZ Cosméticos API!',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Serve static files
-const serveStatic = () => {
-  // Find the static files directory
-  const possiblePaths = [
-    path.resolve(rootDir, 'dist', 'public'),
-    path.resolve(rootDir, 'public')
-  ];
-
-  const distPath = possiblePaths.find(p => fs.existsSync(p)) || path.resolve(rootDir, 'dist', 'public');
-
+const distPath = path.join(rootDir, 'dist', 'public');
+if (fs.existsSync(distPath)) {
   console.log(`Serving static files from: ${distPath}`);
-
-  // Serve static files with cache control
-  app.use(express.static(distPath, {
-    maxAge: '1d',
-    etag: true
-  }));
+  app.use(express.static(distPath));
 
   // Serve assets with longer cache time
   const assetsDir = path.join(distPath, 'assets');
@@ -57,53 +39,28 @@ const serveStatic = () => {
       etag: true
     }));
   }
+}
 
-  // Handle client-side routing
-  app.get('*', (req, res) => {
-    // Skip API routes
-    if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ message: 'API endpoint not found' });
-    }
-
-    const indexPath = path.join(distPath, 'index.html');
-
-    if (fs.existsSync(indexPath)) {
-      return res.sendFile(indexPath);
-    } else {
-      return res.status(404).send('Not found: index.html is missing');
-    }
-  });
-};
-
-// Initialize the server
-const initServer = async () => {
-  try {
-    // Register API routes
-    await registerRoutes();
-
-    // Serve static files and handle client-side routing
-    serveStatic();
-
-    // Error handling middleware
-    app.use((err, req, res, next) => {
-      console.error('Server error:', err);
-      res.status(500).json({ message: 'Internal Server Error' });
-    });
-
-    // Start server if not in Vercel environment
-    if (process.env.VERCEL !== '1') {
-      const port = process.env.PORT || 5000;
-      app.listen(port, () => {
-        console.log(`Server running on port ${port}`);
-      });
-    }
-  } catch (error) {
-    console.error('Failed to initialize server:', error);
+// Handle client-side routing
+app.get('*', (req, res) => {
+  // Skip API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ message: 'API endpoint not found' });
   }
-};
 
-// Initialize the server
-initServer();
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  } else {
+    return res.status(404).send('Not found: index.html is missing');
+  }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ message: 'Internal Server Error' });
+});
 
 // Export for Vercel
 export default app;

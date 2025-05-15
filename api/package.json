@@ -2,9 +2,10 @@
   "name": "siz-api",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.x"
+  },
   "dependencies": {
-    "express": "^4.21.2",
-    "fs": "0.0.1-security",
-    "path": "^0.12.7"
+    "express": "^4.21.2"
   }
 }

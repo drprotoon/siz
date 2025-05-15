@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-console.log('Preparando deploy para Vercel...');
+console.log('Iniciando build para Vercel...');
 
 // Verifica se estamos no ambiente da Vercel
 const isVercel = process.env.VERCEL === '1';
@@ -43,25 +43,11 @@ if (!fs.existsSync(publicDir)) {
 }
 
 // Executa o build do frontend com Vite
-runCommand('npx vite build', 'build do frontend');
+const frontendSuccess = runCommand('npx vite build', 'build do frontend');
 
-// Executa o build do backend com esbuild
-runCommand(
-  'npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:./dist/public/* --external:./api/*',
-  'build do backend'
-);
-
-// Copia o index.html
-runCommand('node scripts/copy-index-html.js', 'cópia do index.html');
-
-// Verifica os arquivos CSS
-runCommand('node scripts/ensure-css.js', 'verificação de CSS');
-
-// Verifica se o diretório api existe
-const apiDir = path.join(rootDir, 'api');
-if (!fs.existsSync(apiDir)) {
-  console.log('Diretório api não encontrado, criando...');
-  fs.mkdirSync(apiDir, { recursive: true });
+if (!frontendSuccess) {
+  console.error('❌ Falha no build do frontend. Abortando.');
+  process.exit(1);
 }
 
 // Cria um arquivo de verificação para debug
@@ -71,12 +57,60 @@ fs.writeFileSync(
   JSON.stringify(
     {
       buildTime: new Date().toISOString(),
-      environment: process.env.NODE_ENV,
+      environment: process.env.NODE_ENV || 'production',
       isVercel,
+      nodeVersion: process.version
     },
     null,
     2
   )
 );
+
+// Cria um arquivo HTML básico se não existir
+const indexHtmlPath = path.join(publicDir, 'index.html');
+if (!fs.existsSync(indexHtmlPath)) {
+  console.log('Criando arquivo index.html básico...');
+
+  // Encontra os arquivos CSS e JS
+  const assetsDir = path.join(publicDir, 'assets');
+  let cssFiles = [];
+  let jsFiles = [];
+
+  if (fs.existsSync(assetsDir)) {
+    const files = fs.readdirSync(assetsDir);
+    cssFiles = files.filter(file => file.endsWith('.css')).map(file => `/assets/${file}`);
+    jsFiles = files.filter(file => file.endsWith('.js')).map(file => `/assets/${file}`);
+  }
+
+  // Cria os links CSS
+  const cssLinks = cssFiles.map(cssPath =>
+    `<link rel="stylesheet" href="${cssPath}" />`
+  ).join('\n    ');
+
+  // Cria os scripts JS
+  const jsScripts = jsFiles.map(jsPath =>
+    `<script type="module" src="${jsPath}"></script>`
+  ).join('\n    ');
+
+  // HTML básico
+  const basicHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>SIZ Cosméticos - Beleza e Cuidados Pessoais</title>
+    <meta name="description" content="Loja de cosméticos e produtos de beleza premium. Encontre perfumes, maquiagem, skincare e muito mais." />
+    <link rel="icon" href="/favicon.ico" />
+    ${cssLinks}
+  </head>
+  <body>
+    <div id="root"></div>
+    ${jsScripts}
+  </body>
+</html>`;
+
+  fs.writeFileSync(indexHtmlPath, basicHtml);
+  console.log('✅ Arquivo index.html básico criado com sucesso!');
+}
 
 console.log('Build para Vercel concluído com sucesso!');
