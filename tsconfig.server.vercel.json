@@ -27,7 +27,7 @@
     "noImplicitReturns": false,
     "noFallthroughCasesInSwitch": false,
     "typeRoots": ["./node_modules/@types", "./types.d.ts"],
-    "types": ["node"]
+    "types": ["node", "express", "pg", "bcrypt", "axios", "multer", "uuid", "fs-extra", "cors", "passport", "passport-local"]
   },
   "include": ["server/**/*", "shared/**/*", "api/**/*", "types.d.ts"],
   "exclude": ["node_modules", "dist"],

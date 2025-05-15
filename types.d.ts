@@ -28,13 +28,62 @@ declare module 'memorystore';
 declare module 'dotenv';
 declare module 'pg';
 declare module 'drizzle-orm';
-declare module 'drizzle-orm/node-postgres';
+declare module 'drizzle-orm/node-postgres' {
+  export function drizzle(client: any, options?: any): any;
+}
 declare module '@supabase/supabase-js';
-declare module 'fast-xml-parser';
+declare module 'fast-xml-parser' {
+  export class XMLParser {
+    constructor(options?: any);
+    parse(xml: string): any;
+  }
+
+  export class XMLBuilder {
+    constructor(options?: any);
+    build(obj: any): string;
+  }
+}
 declare module 'axios';
 declare module 'multer';
 declare module 'uuid';
 declare module 'fs-extra';
+
+// Extend Express Request type to include user and session
+declare namespace Express {
+  interface Request {
+    user?: {
+      id: number;
+      username: string;
+      role: string;
+    };
+    session: Session & {
+      id: string;
+      user?: {
+        id: number;
+        username: string;
+        role: string;
+      };
+      destroy(callback?: (err?: any) => void): void;
+    };
+  }
+}
+
+// Declare global process variable for Node.js
+declare const process: {
+  env: {
+    NODE_ENV: 'development' | 'production' | 'test';
+    DATABASE_URL?: string;
+    SUPABASE_URL?: string;
+    SUPABASE_ANON_KEY?: string;
+    SUPABASE_SERVICE_ROLE_KEY?: string;
+    SESSION_SECRET?: string;
+    PORT?: string;
+    VERCEL?: string;
+    DISABLE_SECURE_COOKIE?: string;
+    TS_NODE_TRANSPILE_ONLY?: string;
+    [key: string]: string | undefined;
+  };
+};
 
 // Tipos para o Supabase Storage
 interface StorageItem {

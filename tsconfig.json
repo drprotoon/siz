@@ -17,7 +17,7 @@
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
-    "types": ["node", "vite/client"],
+    "types": ["node", "vite/client", "express", "pg", "bcrypt", "axios", "multer", "uuid", "fs-extra", "cors", "passport", "passport-local"],
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
