@@ -16,7 +16,7 @@
     "db:migrate": "drizzle-kit generate:pg",
     "db:studio": "drizzle-kit studio",
     "prepare-deploy": "node scripts/prepare-vercel-deploy.js",
-    "vercel-build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:./dist/public/* && node scripts/vercel-build.js",
+    "vercel-build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:./dist/public/* --external:./api/* && node scripts/vercel-build.js",
     "debug-vercel": "node scripts/debug-vercel.js",
     "postbuild": "node scripts/copy-index-html.js",
     "test-prod": "node scripts/test-production.js",

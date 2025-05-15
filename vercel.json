@@ -3,16 +3,10 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "framework": null,
-  "functions": {
-    "dist/index.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/dist/index.js",
+      "dest": "/api",
       "headers": {
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Pragma": "no-cache",
@@ -42,7 +36,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/dist/index.js"
+      "dest": "/api"
     }
   ],
   "env": {
