@@ -1,20 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
-      : []),
   ],
   resolve: {
     alias: {
@@ -32,8 +22,8 @@ export default defineConfig({
       output: {
         // Ensure CSS is extracted to a separate file
         assetFileNames: (assetInfo) => {
-          let extType = assetInfo.name.split('.').at(1);
-          if (/\.(css)$/i.test(assetInfo.name)) {
+          const fileName = assetInfo.name || '';
+          if (/\.(css)$/i.test(fileName)) {
             return `assets/styles.[hash][extname]`;
           }
           return `assets/[name].[hash][extname]`;
