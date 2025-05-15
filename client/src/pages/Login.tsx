@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { z } from "zod";
@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const loginSchema = z.object({
   username: z.string().min(3, "Nome de usuário deve ter pelo menos 3 caracteres"),
@@ -27,7 +28,20 @@ const loginSchema = z.object({
 export default function Login() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  
+  const { checkoutRedirectUrl, setCheckoutRedirectUrl } = useAuth();
+
+  // Verificar se há um redirecionamento para checkout
+  useEffect(() => {
+    // Adicionar mensagem se o usuário foi redirecionado do checkout
+    if (checkoutRedirectUrl) {
+      toast({
+        title: "Login necessário para finalizar a compra",
+        description: "Faça login para continuar com o checkout.",
+        variant: "default",
+      });
+    }
+  }, [checkoutRedirectUrl, toast]);
+
   // Create form
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -36,24 +50,95 @@ export default function Login() {
       password: "",
     },
   });
-  
+
   // Handle login mutation
   const loginMutation = useMutation({
     mutationFn: async (values: z.infer<typeof loginSchema>) => {
       return apiRequest("POST", "/api/auth/login", values);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
-      
-      toast({
-        title: "Login bem-sucedido",
-        description: "Você foi autenticado com sucesso.",
-        variant: "default",
-      });
-      
-      // Redirect to home page or previous page
-      navigate("/");
+    onSuccess: async (data) => {
+      try {
+        // Aguardar a resposta JSON para garantir que temos os dados do usuário
+        const userData = await data.json();
+
+        // Invalidate queries AFTER we have the user data
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+
+        toast({
+          title: "Login bem-sucedido",
+          description: "Você foi autenticado com sucesso.",
+          variant: "default",
+        });
+
+        // Verificar se há dados pendentes no sessionStorage
+        const redirectAfterLogin = sessionStorage.getItem('redirectAfterLogin');
+        const pendingProductId = sessionStorage.getItem('pendingProductId');
+        const pendingProductQuantity = sessionStorage.getItem('pendingProductQuantity');
+        const pendingShipping = sessionStorage.getItem('pendingShipping');
+
+        // Se houver um produto pendente, adicionar ao carrinho
+        if (pendingProductId && pendingProductQuantity) {
+          try {
+            // Adicionar o produto ao carrinho
+            await apiRequest("POST", "/api/cart", {
+              productId: parseInt(pendingProductId),
+              quantity: parseInt(pendingProductQuantity)
+            });
+
+            // Invalidar a query do carrinho para atualizar os dados
+            queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+
+            // Limpar os dados pendentes
+            sessionStorage.removeItem('pendingProductId');
+            sessionStorage.removeItem('pendingProductQuantity');
+
+            // Mostrar mensagem de sucesso
+            toast({
+              title: "Produto adicionado ao carrinho",
+              description: "O produto foi adicionado ao seu carrinho.",
+              variant: "default",
+            });
+          } catch (error) {
+            console.error("Erro ao adicionar produto pendente ao carrinho:", error);
+          }
+        }
+
+        // Determinar para onde redirecionar após o refresh
+        let redirectTo = "/";
+
+        if (checkoutRedirectUrl) {
+          // Limpar o redirecionamento pendente
+          setCheckoutRedirectUrl(null);
+          redirectTo = checkoutRedirectUrl;
+
+          toast({
+            title: "Login realizado com sucesso",
+            description: "Continuando para finalizar sua compra.",
+            variant: "default",
+          });
+        } else if (redirectAfterLogin) {
+          // Limpar o redirecionamento pendente
+          sessionStorage.removeItem('redirectAfterLogin');
+          redirectTo = redirectAfterLogin;
+        } else if (userData.user && userData.user.role === "admin") {
+          redirectTo = "/admin";
+        }
+
+        // Armazenar o destino de redirecionamento no sessionStorage
+        sessionStorage.setItem('loginRedirectTo', redirectTo);
+
+        // Fazer um refresh da página para garantir que o estado de autenticação seja atualizado
+        window.location.href = redirectTo;
+      } catch (error) {
+        console.error("Erro ao processar resposta de login:", error);
+        // Em caso de erro ao processar o JSON, redireciona para a home
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+
+        // Redirecionar para a página inicial mesmo em caso de erro
+        navigate("/");
+      }
     },
     onError: (error) => {
       toast({
@@ -63,12 +148,12 @@ export default function Login() {
       });
     },
   });
-  
+
   // Handle form submission
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     loginMutation.mutate(values);
   };
-  
+
   return (
     <div className="container mx-auto max-w-md py-12">
       <Card>
@@ -94,7 +179,7 @@ export default function Login() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="password"
@@ -108,7 +193,7 @@ export default function Login() {
                   </FormItem>
                 )}
               />
-              
+
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-pink-600"
@@ -134,7 +219,7 @@ export default function Login() {
               <a className="text-primary hover:underline">Registre-se</a>
             </Link>
           </div>
-          
+
           <div className="text-sm text-center text-gray-500">
             <Link href="/forgot-password">
               <a className="text-primary hover:underline">Esqueceu sua senha?</a>

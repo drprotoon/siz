@@ -3,13 +3,13 @@ import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -18,28 +18,34 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { 
-  Search, 
-  User, 
-  Heart, 
-  ShoppingBag, 
-  ChevronDown, 
-  LogIn, 
-  UserPlus, 
-  LogOut
+import {
+  Search,
+  User,
+  Heart,
+  ShoppingBag,
+  ChevronDown,
+  LogIn,
+  UserPlus,
+  LogOut,
+  Moon,
+  Sun
 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Toggle } from "@/components/ui/toggle";
 
 export default function Header() {
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { toast } = useToast();
+  const { theme, toggleTheme } = useTheme();
 
   // Auth query to check if user is logged in
   const { data: authData, isLoading: isAuthLoading } = useQuery({
@@ -113,19 +119,45 @@ export default function Header() {
     mutationFn: async (values: z.infer<typeof loginFormSchema>) => {
       return apiRequest("POST", "/api/auth/login", values);
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       setIsLoginDialogOpen(false);
       loginForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
-      toast({
-        title: "Logged in successfully",
-        variant: "default",
-      });
+
+      try {
+        // Aguardar a resposta JSON para garantir que temos os dados do usuário
+        const userData = await data.json();
+
+        // Invalidate queries AFTER we have the user data
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+
+        toast({
+          title: "Login realizado com sucesso",
+          variant: "default",
+        });
+
+        // Redirecionar imediatamente para a página inicial
+        if (userData.user && userData.user.role === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
+      } catch (error) {
+        console.error("Erro ao processar resposta de login:", error);
+        // Em caso de erro ao processar o JSON, redireciona para a home
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+
+        navigate("/");
+        toast({
+          title: "Login realizado com sucesso",
+          variant: "default",
+        });
+      }
     },
     onError: (error) => {
       toast({
-        title: "Login failed",
+        title: "Falha no login",
         description: error.message,
         variant: "destructive",
       });
@@ -143,8 +175,8 @@ export default function Header() {
       registerForm.reset();
       setIsLoginDialogOpen(true);
       toast({
-        title: "Registration successful",
-        description: "You can now log in with your credentials",
+        title: "Cadastro realizado com sucesso",
+        description: "Agora você pode fazer login com suas credenciais",
         variant: "default",
       });
     },
@@ -174,7 +206,7 @@ export default function Header() {
       navigate(`/search?q=${encodeURIComponent(searchTerm)}`);
     }
   };
-  
+
   // Handle logout
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -193,55 +225,90 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white shadow-sm">
+    <header className="bg-background border-b border-border shadow-sm transition-colors duration-300">
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row justify-between items-center py-4">
-          <div className="flex items-center mb-4 lg:mb-0">
+          <div className="flex items-center justify-between w-full lg:w-auto mb-4 lg:mb-0">
             <Link href="/">
-              <h1 className="text-2xl font-bold text-primary font-heading cursor-pointer">BeautyEssence</h1>
+              <h1 className="text-2xl font-bold text-primary font-heading cursor-pointer">SIZ COSMETICOS</h1>
             </Link>
+
+            {/* Mobile menu toggle and dark mode toggle */}
+            <div className="flex items-center space-x-2 lg:hidden">
+              <Toggle
+                pressed={theme === 'dark'}
+                onPressedChange={toggleTheme}
+                aria-label="Toggle dark mode"
+                className="bg-background border border-border"
+              >
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Toggle>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-foreground hover:text-primary hover:bg-transparent lg:hidden"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </Button>
+            </div>
           </div>
-          
+
           <div className="w-full lg:w-1/3 mb-4 lg:mb-0">
             <form onSubmit={handleSearch} className="relative">
               <Input
                 type="text"
-                placeholder="Search products..."
-                className="w-full px-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Buscar produtos..."
+                className="w-full px-4 py-2 border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <Button 
+              <Button
                 type="submit"
                 variant="ghost"
                 size="icon"
-                className="absolute right-3 top-2 text-gray-400 hover:text-primary hover:bg-transparent"
+                className="absolute right-3 top-2 text-muted-foreground hover:text-primary hover:bg-transparent"
               >
                 <Search size={18} />
               </Button>
             </form>
           </div>
-          
-          <div className="flex items-center space-x-6">
+
+          <div className="flex items-center space-x-2 md:space-x-6">
+            {/* Dark mode toggle - desktop */}
+            <div className="hidden lg:block">
+              <Toggle
+                pressed={theme === 'dark'}
+                onPressedChange={toggleTheme}
+                aria-label="Toggle dark mode"
+                className="bg-background border border-border"
+              >
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Toggle>
+            </div>
+
             {!isAuthLoading && (
               <>
                 {!authData?.user ? (
                   <div className="flex items-center space-x-2">
                     <Button
                       variant="ghost"
-                      className="text-gray-600 hover:text-primary hover:bg-transparent flex items-center"
+                      className="text-foreground hover:text-primary hover:bg-transparent flex items-center"
                       onClick={() => navigate("/login")}
                     >
                       <LogIn className="mr-1" size={18} />
-                      <span>Entrar</span>
+                      <span className="hidden sm:inline">Entrar</span>
                     </Button>
                     <Button
                       variant="outline"
                       className="border-primary text-primary hover:bg-primary hover:text-white flex items-center"
                       onClick={() => navigate("/register")}
                     >
-                      <UserPlus className="mr-1" size={18} />
-                      <span>Cadastrar</span>
+                      <UserPlus className="mr-1 sm:mr-2" size={18} />
+                      <span className="hidden sm:inline">Cadastrar</span>
                     </Button>
                   </div>
                 ) : (
@@ -250,26 +317,26 @@ export default function Header() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-gray-600 hover:text-primary hover:bg-transparent"
+                        className="text-foreground hover:text-primary hover:bg-transparent"
                       >
                         <User size={24} />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="bg-popover text-popover-foreground border-border">
                       {authData.user.role === "admin" && (
                         <DropdownMenuItem onClick={() => navigate("/admin")}>
-                          Admin Dashboard
+                          Painel de Administração
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => navigate("/profile")}>
-                        My Profile
+                        Meu Perfil
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => navigate("/orders")}>
-                        My Orders
+                        Meus Pedidos
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={handleLogout}>
                         <LogOut className="mr-2 h-4 w-4" />
-                        <span>Logout</span>
+                        <span>Sair</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -279,7 +346,7 @@ export default function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="text-gray-600 hover:text-primary hover:bg-transparent"
+              className="text-foreground hover:text-primary hover:bg-transparent"
               onClick={() => navigate("/wishlist")}
             >
               <Heart size={24} />
@@ -287,7 +354,7 @@ export default function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="text-gray-600 hover:text-primary hover:bg-transparent relative"
+              className="text-foreground hover:text-primary hover:bg-transparent relative"
               onClick={() => navigate("/cart")}
             >
               <ShoppingBag size={24} />
@@ -299,39 +366,126 @@ export default function Header() {
             </Button>
           </div>
         </div>
-        
-        <nav className="py-4 border-t border-gray-100">
+
+        {/* Desktop Navigation */}
+        <nav className={`py-4 border-t border-border hidden lg:block`}>
           <ul className="flex flex-wrap justify-center lg:justify-start space-x-1 lg:space-x-8">
             <li>
               <Link href="/">
-                <a className="px-3 py-2 font-medium hover:text-primary transition-colors">Home</a>
+                <span className="px-3 py-2 font-medium hover:text-primary transition-colors cursor-pointer">Início</span>
               </Link>
             </li>
-            
-            {categories?.map((category) => (
-              <li key={category.id} className="relative group">
-                <Link href={`/category/${category.slug}`}>
-                  <a className="px-3 py-2 font-medium hover:text-primary transition-colors flex items-center">
-                    {category.name} <ChevronDown size={16} className="ml-1" />
-                  </a>
+
+            {/* Feminino Dropdown */}
+            <li className="relative group">
+              <div className="px-3 py-2 font-medium hover:text-primary transition-colors flex items-center cursor-pointer">
+                Feminino <ChevronDown size={16} className="ml-1" />
+              </div>
+              <div className="absolute left-0 mt-2 w-48 bg-popover text-popover-foreground shadow-lg rounded-md overflow-hidden z-20 transform opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 origin-top-left hidden group-hover:block border border-border">
+                <Link href="/category/perfumes-femininos">
+                  <span className="block px-4 py-2 text-sm hover:bg-primary hover:text-white transition-colors">Perfumes</span>
                 </Link>
-                {/* Dropdown for subcategories could be added here */}
-              </li>
-            ))}
-            
+                <Link href="/category/fragrancias">
+                  <span className="block px-4 py-2 text-sm hover:bg-primary hover:text-white transition-colors">Fragrâncias</span>
+                </Link>
+                <Link href="/category/skincare">
+                  <span className="block px-4 py-2 text-sm hover:bg-primary hover:text-white transition-colors">Skincare</span>
+                </Link>
+                <Link href="/category/maquiagem">
+                  <span className="block px-4 py-2 text-sm hover:bg-primary hover:text-white transition-colors">Maquiagem</span>
+                </Link>
+              </div>
+            </li>
+
+            {/* Masculino Dropdown */}
+            <li className="relative group">
+              <div className="px-3 py-2 font-medium hover:text-primary transition-colors flex items-center cursor-pointer">
+                Masculino <ChevronDown size={16} className="ml-1" />
+              </div>
+              <div className="absolute left-0 mt-2 w-48 bg-popover text-popover-foreground shadow-lg rounded-md overflow-hidden z-20 transform opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 origin-top-left hidden group-hover:block border border-border">
+                <Link href="/category/perfumes-masculinos">
+                  <span className="block px-4 py-2 text-sm hover:bg-primary hover:text-white transition-colors">Perfumes</span>
+                </Link>
+                <Link href="/category/kits">
+                  <span className="block px-4 py-2 text-sm hover:bg-primary hover:text-white transition-colors">Kits</span>
+                </Link>
+              </div>
+            </li>
+
             <li>
               <Link href="/new-arrivals">
-                <a className="px-3 py-2 font-medium hover:text-primary transition-colors">New Arrivals</a>
+                <span className="px-3 py-2 font-medium hover:text-primary transition-colors cursor-pointer">Novidades</span>
               </Link>
             </li>
             <li>
               <Link href="/best-sellers">
-                <a className="px-3 py-2 font-medium hover:text-primary transition-colors">Best Sellers</a>
+                <span className="px-3 py-2 font-medium hover:text-primary transition-colors cursor-pointer">Mais Vendidos</span>
+              </Link>
+            </li>
+          </ul>
+        </nav>
+
+        {/* Mobile Navigation */}
+        <nav className={`${isMobileMenuOpen ? 'block' : 'hidden'} lg:hidden py-4 border-t border-border`}>
+          <ul className="flex flex-col space-y-2">
+            <li>
+              <Link href="/">
+                <span className="block px-3 py-2 font-medium hover:text-primary transition-colors cursor-pointer">Início</span>
+              </Link>
+            </li>
+
+            {/* Feminino Section */}
+            <li>
+              <div className="px-3 py-2 font-medium text-primary transition-colors">Feminino</div>
+              <ul className="pl-6 space-y-1">
+                <li>
+                  <Link href="/category/perfumes-femininos">
+                    <span className="block px-3 py-1 text-sm hover:text-primary transition-colors">Perfumes</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/category/fragrancias">
+                    <span className="block px-3 py-1 text-sm hover:text-primary transition-colors">Fragrâncias</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/category/skincare">
+                    <span className="block px-3 py-1 text-sm hover:text-primary transition-colors">Skincare</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/category/maquiagem">
+                    <span className="block px-3 py-1 text-sm hover:text-primary transition-colors">Maquiagem</span>
+                  </Link>
+                </li>
+              </ul>
+            </li>
+
+            {/* Masculino Section */}
+            <li>
+              <div className="px-3 py-2 font-medium text-primary transition-colors">Masculino</div>
+              <ul className="pl-6 space-y-1">
+                <li>
+                  <Link href="/category/perfumes-masculinos">
+                    <span className="block px-3 py-1 text-sm hover:text-primary transition-colors">Perfumes</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/category/kits">
+                    <span className="block px-3 py-1 text-sm hover:text-primary transition-colors">Kits</span>
+                  </Link>
+                </li>
+              </ul>
+            </li>
+
+            <li>
+              <Link href="/new-arrivals">
+                <span className="block px-3 py-2 font-medium hover:text-primary transition-colors cursor-pointer">Novidades</span>
               </Link>
             </li>
             <li>
-              <Link href="/sale">
-                <a className="px-3 py-2 font-medium hover:text-primary transition-colors">Sale</a>
+              <Link href="/best-sellers">
+                <span className="block px-3 py-2 font-medium hover:text-primary transition-colors cursor-pointer">Mais Vendidos</span>
               </Link>
             </li>
           </ul>
@@ -342,9 +496,9 @@ export default function Header() {
       <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Login to your account</DialogTitle>
+            <DialogTitle>Entrar na sua conta</DialogTitle>
             <DialogDescription>
-              Enter your credentials to access your account.
+              Digite suas credenciais para acessar sua conta.
             </DialogDescription>
           </DialogHeader>
           <Form {...loginForm}>
@@ -354,9 +508,9 @@ export default function Header() {
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Usuário</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your username" {...field} />
+                      <Input placeholder="Digite seu nome de usuário" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -367,27 +521,27 @@ export default function Header() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Enter your password" {...field} />
+                      <Input type="password" placeholder="Digite sua senha" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <DialogFooter className="flex flex-col sm:flex-row sm:justify-between sm:space-x-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={switchToRegister}
                   className="mb-2 sm:mb-0"
                 >
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Create Account
+                  Criar Conta
                 </Button>
                 <Button type="submit" disabled={loginMutation.isPending}>
                   <LogIn className="mr-2 h-4 w-4" />
-                  {loginMutation.isPending ? "Logging in..." : "Login"}
+                  {loginMutation.isPending ? "Entrando..." : "Entrar"}
                 </Button>
               </DialogFooter>
             </form>
@@ -399,9 +553,9 @@ export default function Header() {
       <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Create a new account</DialogTitle>
+            <DialogTitle>Criar uma nova conta</DialogTitle>
             <DialogDescription>
-              Fill out the form below to create your account.
+              Preencha o formulário abaixo para criar sua conta.
             </DialogDescription>
           </DialogHeader>
           <Form {...registerForm}>
@@ -411,9 +565,9 @@ export default function Header() {
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Usuário</FormLabel>
                     <FormControl>
-                      <Input placeholder="Choose a username" {...field} />
+                      <Input placeholder="Escolha um nome de usuário" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -426,7 +580,7 @@ export default function Header() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="Enter your email" {...field} />
+                      <Input type="email" placeholder="Digite seu email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -437,9 +591,9 @@ export default function Header() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Create a password" {...field} />
+                      <Input type="password" placeholder="Crie uma senha" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -450,27 +604,27 @@ export default function Header() {
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
+                    <FormLabel>Confirmar Senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Confirm your password" {...field} />
+                      <Input type="password" placeholder="Confirme sua senha" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <DialogFooter className="flex flex-col sm:flex-row sm:justify-between sm:space-x-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={switchToLogin}
                   className="mb-2 sm:mb-0"
                 >
                   <LogIn className="mr-2 h-4 w-4" />
-                  I already have an account
+                  Já tenho uma conta
                 </Button>
                 <Button type="submit" disabled={registerMutation.isPending}>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  {registerMutation.isPending ? "Creating account..." : "Register"}
+                  {registerMutation.isPending ? "Criando conta..." : "Cadastrar"}
                 </Button>
               </DialogFooter>
             </form>

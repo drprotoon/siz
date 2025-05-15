@@ -13,21 +13,29 @@ import {
   InsertReview,
   CartItem,
   InsertCartItem,
+  WishlistItem,
+  InsertWishlistItem,
   ProductWithCategory,
   OrderWithItems,
   FreightOption,
   FreightCalculationResponse,
   PaymentIntent
 } from "@shared/schema";
+import { ensureImagesArray } from "./utils";
+import { eq, and, desc, sql, ne } from "drizzle-orm";
+import { db } from "./db";
+import { users, categories, products, orders, orderItems, reviews, cartItems, wishlistItems, addresses } from "@shared/schema";
+import bcrypt from "bcrypt";
 
 export interface IStorage {
   // Users
+  getUsers(): Promise<User[]>;
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
-  
+
   // Categories
   getCategories(): Promise<Category[]>;
   getCategory(id: number): Promise<Category | undefined>;
@@ -77,7 +85,7 @@ export interface IStorage {
   // Payment processing
   createPaymentIntent(amount: number): Promise<PaymentIntent>;
   processPayment(paymentId: string): Promise<PaymentIntent>;
-  
+
   // Statistics for admin dashboard
   getStats(): Promise<{
     totalSales: number,
@@ -95,7 +103,7 @@ export class MemStorage implements IStorage {
   private orderItems: Map<number, OrderItem[]>;
   private reviews: Map<number, Review>;
   private cartItems: Map<number, CartItem>;
-  
+
   private userCurrentId: number;
   private categoryCurrentId: number;
   private productCurrentId: number;
@@ -112,7 +120,7 @@ export class MemStorage implements IStorage {
     this.orderItems = new Map();
     this.reviews = new Map();
     this.cartItems = new Map();
-    
+
     this.userCurrentId = 1;
     this.categoryCurrentId = 1;
     this.productCurrentId = 1;
@@ -248,6 +256,10 @@ export class MemStorage implements IStorage {
   }
 
   // Users
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
   async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
@@ -318,7 +330,7 @@ export class MemStorage implements IStorage {
   // Products
   async getProducts(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<Product[]> {
     let products = Array.from(this.products.values());
-    
+
     if (options) {
       if (options.categoryId !== undefined) {
         products = products.filter(p => p.categoryId === options.categoryId);
@@ -330,7 +342,7 @@ export class MemStorage implements IStorage {
         products = products.filter(p => p.visible === options.visible);
       }
     }
-    
+
     return products;
   }
 
@@ -385,9 +397,9 @@ export class MemStorage implements IStorage {
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
     const id = this.productCurrentId++;
-    const product: Product = { 
-      ...insertProduct, 
-      id, 
+    const product: Product = {
+      ...insertProduct,
+      id,
       createdAt: new Date(),
       rating: "0",
       reviewCount: 0
@@ -456,7 +468,7 @@ export class MemStorage implements IStorage {
 
     const items = this.orderItems.get(id) || [];
     const user = await this.getUser(order.userId);
-    
+
     return {
       ...order,
       items,
@@ -542,7 +554,7 @@ export class MemStorage implements IStorage {
       const reviews = await this.getProductReviews(product.id);
       const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
       const newRating = (totalRating / reviews.length).toFixed(1);
-      
+
       await this.updateProduct(product.id, {
         rating: newRating,
         reviewCount: reviews.length
@@ -557,7 +569,7 @@ export class MemStorage implements IStorage {
     if (!review) return false;
 
     const success = this.reviews.delete(id);
-    
+
     // Update product rating
     if (success) {
       const product = await this.getProduct(review.productId);
@@ -565,7 +577,7 @@ export class MemStorage implements IStorage {
         const reviews = await this.getProductReviews(product.id);
         const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
         const newRating = reviews.length > 0 ? (totalRating / reviews.length).toFixed(1) : "0";
-        
+
         await this.updateProduct(product.id, {
           rating: newRating,
           reviewCount: reviews.length
@@ -581,7 +593,7 @@ export class MemStorage implements IStorage {
     if (!userId && !sessionId) {
       return [];
     }
-    
+
     return Array.from(this.cartItems.values()).filter((item) => {
       if (userId && item.userId === userId) {
         return true;
@@ -657,10 +669,10 @@ export class MemStorage implements IStorage {
   async calculateFreight(postalCode: string, weight: number): Promise<FreightCalculationResponse> {
     // Simulate API call to a shipping service
     // In a real implementation, this would call an external API
-    
+
     // Mock freight calculation based on postal code and weight
     const basePrice = Math.round(weight * 0.5 * 100) / 100; // 0.5 per gram
-    
+
     // Different options based on weight and distance
     const options: FreightOption[] = [
       {
@@ -758,6 +770,10 @@ import { users, categories, products, orders, orderItems, reviews, cartItems } f
 
 export class DatabaseStorage implements IStorage {
   // USERS
+  async getUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -824,34 +840,34 @@ export class DatabaseStorage implements IStorage {
   // PRODUCTS
   async getProducts(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<Product[]> {
     let query = db.select().from(products);
-    
+
     if (options) {
       const conditions = [];
-      
+
       if (options.categoryId !== undefined) {
         conditions.push(eq(products.categoryId, options.categoryId));
       }
-      
+
       if (options.featured !== undefined) {
         conditions.push(eq(products.featured, options.featured));
       }
-      
+
       if (options.visible !== undefined) {
         conditions.push(eq(products.visible, options.visible));
       }
-      
+
       if (conditions.length > 0) {
         query = query.where(and(...conditions));
       }
     }
-    
+
     return query;
   }
 
   async getProductsWithCategory(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<ProductWithCategory[]> {
     const productsData = await this.getProducts(options);
     const results: ProductWithCategory[] = [];
-    
+
     for (const product of productsData) {
       const category = await this.getCategory(product.categoryId);
       if (category) {
@@ -861,7 +877,7 @@ export class DatabaseStorage implements IStorage {
         });
       }
     }
-    
+
     return results;
   }
 
@@ -878,10 +894,10 @@ export class DatabaseStorage implements IStorage {
   async getProductWithCategory(id: number): Promise<ProductWithCategory | undefined> {
     const product = await this.getProduct(id);
     if (!product) return undefined;
-    
+
     const category = await this.getCategory(product.categoryId);
     if (!category) return undefined;
-    
+
     return {
       ...product,
       category
@@ -891,10 +907,10 @@ export class DatabaseStorage implements IStorage {
   async getProductWithCategoryBySlug(slug: string): Promise<ProductWithCategory | undefined> {
     const product = await this.getProductBySlug(slug);
     if (!product) return undefined;
-    
+
     const category = await this.getCategory(product.categoryId);
     if (!category) return undefined;
-    
+
     return {
       ...product,
       category
@@ -923,10 +939,10 @@ export class DatabaseStorage implements IStorage {
   async updateProductStock(id: number, quantityChange: number): Promise<Product | undefined> {
     const product = await this.getProduct(id);
     if (!product) return undefined;
-    
+
     const newQuantity = product.quantity + quantityChange;
     if (newQuantity < 0) return undefined;
-    
+
     return this.updateProduct(id, { quantity: newQuantity });
   }
 
@@ -938,11 +954,11 @@ export class DatabaseStorage implements IStorage {
   async getOrdersWithItems(): Promise<OrderWithItems[]> {
     const ordersData = await this.getOrders();
     const results: OrderWithItems[] = [];
-    
+
     for (const order of ordersData) {
       const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
       const user = await this.getUser(order.userId);
-      
+
       if (user) {
         results.push({
           ...order,
@@ -956,7 +972,7 @@ export class DatabaseStorage implements IStorage {
         });
       }
     }
-    
+
     return results;
   }
 
@@ -968,12 +984,12 @@ export class DatabaseStorage implements IStorage {
   async getOrderWithItems(id: number): Promise<OrderWithItems | undefined> {
     const order = await this.getOrder(id);
     if (!order) return undefined;
-    
+
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
     const user = await this.getUser(order.userId);
-    
+
     if (!user) return undefined;
-    
+
     return {
       ...order,
       items,
@@ -986,18 +1002,63 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getUserOrders(userId: number): Promise<Order[]> {
-    return db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
+  async getUserOrders(userId: string | number): Promise<Order[]> {
+    const userIdNum = typeof userId === 'string' ? parseInt(userId) : userId;
+    return db.select().from(orders).where(eq(orders.userId, userIdNum)).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrderById(orderId: string | number): Promise<any> {
+    try {
+      const orderIdNum = typeof orderId === 'string' ? parseInt(orderId) : orderId;
+
+      // Buscar o pedido
+      const order = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, orderIdNum))
+        .limit(1);
+
+      if (order.length === 0) {
+        return null;
+      }
+
+      // Buscar os itens do pedido
+      const items = await db
+        .select({
+          id: orderItems.id,
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          price: orderItems.price,
+          product: {
+            id: products.id,
+            name: products.name,
+            price: products.price,
+            images: products.images
+          }
+        })
+        .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
+        .where(eq(orderItems.orderId, orderIdNum));
+
+      // Retornar o pedido com os itens
+      return {
+        ...order[0],
+        items
+      };
+    } catch (error) {
+      console.error('Error getting order by ID:', error);
+      throw error;
+    }
   }
 
   async getUserOrdersWithItems(userId: number): Promise<OrderWithItems[]> {
     const ordersData = await this.getUserOrders(userId);
     const results: OrderWithItems[] = [];
-    
+
     for (const order of ordersData) {
       const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
       const user = await this.getUser(userId);
-      
+
       if (user) {
         results.push({
           ...order,
@@ -1011,24 +1072,58 @@ export class DatabaseStorage implements IStorage {
         });
       }
     }
-    
+
     return results;
   }
 
-  async createOrder(insertOrder: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
-    const [order] = await db.insert(orders).values(insertOrder).returning();
-    
-    for (const item of items) {
-      await db.insert(orderItems).values({
-        ...item,
-        orderId: order.id
-      });
-      
-      // Update product stock
-      await this.updateProductStock(item.productId, -item.quantity);
+  async createOrder(orderData: any): Promise<any> {
+    try {
+      // Inserir o pedido
+      const [newOrder] = await db
+        .insert(orders)
+        .values({
+          userId: typeof orderData.userId === 'string' ? parseInt(orderData.userId) : orderData.userId,
+          status: orderData.status || 'pending',
+          shippingAddress: orderData.shippingAddress,
+          shippingMethod: orderData.shippingMethod,
+          payment: orderData.payment,
+          subtotal: orderData.subtotal,
+          shippingCost: orderData.shippingCost,
+          total: orderData.total,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+
+      // Inserir os itens do pedido
+      const orderItemsData = orderData.items.map((item: any) => ({
+        orderId: newOrder.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }));
+
+      const items = await db
+        .insert(orderItems)
+        .values(orderItemsData)
+        .returning();
+
+      // Atualizar estoque dos produtos
+      for (const item of orderData.items) {
+        await this.updateProductStock(item.productId, -item.quantity);
+      }
+
+      // Retornar o pedido com os itens
+      return {
+        ...newOrder,
+        items
+      };
+    } catch (error) {
+      console.error('Error creating order:', error);
+      throw error;
     }
-    
-    return order;
   }
 
   async updateOrderStatus(id: number, status: string): Promise<Order | undefined> {
@@ -1047,34 +1142,34 @@ export class DatabaseStorage implements IStorage {
 
   async createReview(insertReview: InsertReview): Promise<Review> {
     const [review] = await db.insert(reviews).values(insertReview).returning();
-    
+
     // Update product rating
     const productReviews = await this.getProductReviews(insertReview.productId);
     if (productReviews.length > 0) {
       const totalRating = productReviews.reduce((sum, review) => sum + review.rating, 0);
       const avgRating = (totalRating / productReviews.length).toFixed(1);
-      
+
       await this.updateProduct(insertReview.productId, {
         rating: avgRating,
         reviewCount: productReviews.length
       } as any);
     }
-    
+
     return review;
   }
 
   async deleteReview(id: number): Promise<boolean> {
     const [review] = await db.select().from(reviews).where(eq(reviews.id, id));
     if (!review) return false;
-    
+
     await db.delete(reviews).where(eq(reviews.id, id));
-    
+
     // Update product rating
     const productReviews = await this.getProductReviews(review.productId);
     if (productReviews.length > 0) {
       const totalRating = productReviews.reduce((sum, review) => sum + review.rating, 0);
       const avgRating = (totalRating / productReviews.length).toFixed(1);
-      
+
       await this.updateProduct(review.productId, {
         rating: avgRating,
         reviewCount: productReviews.length
@@ -1085,7 +1180,7 @@ export class DatabaseStorage implements IStorage {
         reviewCount: 0
       } as any);
     }
-    
+
     return true;
   }
 
@@ -1100,27 +1195,96 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // WISHLIST
+  async getUserWishlist(userId: number): Promise<WishlistItem[]> {
+    return db.select().from(wishlistItems).where(eq(wishlistItems.userId, userId));
+  }
+
+  async getUserWishlistWithProducts(userId: number): Promise<(WishlistItem & { product: Product })[]> {
+    const wishlistItemsData = await this.getUserWishlist(userId);
+    const results: (WishlistItem & { product: Product })[] = [];
+
+    for (const item of wishlistItemsData) {
+      const product = await this.getProduct(item.productId);
+      if (product) {
+        results.push({
+          ...item,
+          product: {
+            ...product,
+            images: ensureImagesArray(product.images)
+          }
+        });
+      }
+    }
+
+    return results;
+  }
+
+  async addToWishlist(insertWishlistItem: InsertWishlistItem): Promise<WishlistItem> {
+    // Check if item already exists in wishlist
+    const [existingItem] = await db
+      .select()
+      .from(wishlistItems)
+      .where(
+        and(
+          eq(wishlistItems.userId, insertWishlistItem.userId),
+          eq(wishlistItems.productId, insertWishlistItem.productId)
+        )
+      );
+
+    if (existingItem) {
+      // Item already exists, return it
+      return existingItem;
+    } else {
+      // Add new item
+      const [wishlistItem] = await db.insert(wishlistItems).values(insertWishlistItem).returning();
+      return wishlistItem;
+    }
+  }
+
+  async removeFromWishlist(id: number): Promise<boolean> {
+    await db.delete(wishlistItems).where(eq(wishlistItems.id, id));
+    return true;
+  }
+
+  async isProductInWishlist(userId: number, productId: number): Promise<boolean> {
+    const [existingItem] = await db
+      .select()
+      .from(wishlistItems)
+      .where(
+        and(
+          eq(wishlistItems.userId, userId),
+          eq(wishlistItems.productId, productId)
+        )
+      );
+
+    return !!existingItem;
+  }
+
   async getUserCartWithProducts(userId?: number, sessionId?: string): Promise<(CartItem & { product: Product })[]> {
     const cartItemsData = await this.getUserCart(userId, sessionId);
     const results: (CartItem & { product: Product })[] = [];
-    
+
     for (const item of cartItemsData) {
       const product = await this.getProduct(item.productId);
       if (product) {
         results.push({
           ...item,
-          product
+          product: {
+            ...product,
+            images: ensureImagesArray(product.images)
+          }
         });
       }
     }
-    
+
     return results;
   }
 
   async addToCart(insertCartItem: InsertCartItem): Promise<CartItem> {
     // Check if item already exists in cart
     let existingItem: CartItem | undefined;
-    
+
     if (insertCartItem.userId) {
       [existingItem] = await db
         .select()
@@ -1142,7 +1306,7 @@ export class DatabaseStorage implements IStorage {
           )
         );
     }
-    
+
     if (existingItem) {
       // Update quantity
       const [updatedItem] = await db
@@ -1163,7 +1327,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(cartItems).where(eq(cartItems.id, id));
       return undefined;
     }
-    
+
     const [updatedItem] = await db
       .update(cartItems)
       .set({ quantity })
@@ -1188,30 +1352,11 @@ export class DatabaseStorage implements IStorage {
 
   // FREIGHT CALCULATION
   async calculateFreight(postalCode: string, weight: number): Promise<FreightCalculationResponse> {
-    // Aqui vamos simular o cálculo de frete
-    // Em um ambiente real, isso chamaria uma API externa
-    const options: FreightOption[] = [
-      {
-        name: "Econômico",
-        price: Math.round(weight * 0.1 * 100) / 100,
-        estimatedDays: "7-10 dias"
-      },
-      {
-        name: "Padrão",
-        price: Math.round(weight * 0.2 * 100) / 100,
-        estimatedDays: "3-5 dias"
-      },
-      {
-        name: "Expresso",
-        price: Math.round(weight * 0.35 * 100) / 100,
-        estimatedDays: "1-2 dias"
-      }
-    ];
-    
-    return {
-      options,
-      postalCode
-    };
+    // Import the shipping calculation function from our shipping module
+    const { calculateShipping } = await import('./shipping');
+
+    // Calculate shipping options based on weight and postal code
+    return await calculateShipping(weight, postalCode);
   }
 
   // PAYMENT PROCESSING
@@ -1242,37 +1387,269 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(orders)
       .where(eq(orders.status, "completed"));
-    
+
     const totalSales = completedOrders.reduce((sum, order) => {
       return sum + parseFloat(order.total);
     }, 0);
-    
+
     // Total de pedidos
     const totalOrders = await db
       .select({ count: sql`count(*)` })
       .from(orders);
-    
+
     // Novos clientes (últimos 30 dias)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const newCustomers = await db
       .select({ count: sql`count(*)` })
       .from(users)
       .where(sql`${users.createdAt} >= ${thirtyDaysAgo}`);
-    
+
     // Produtos com estoque baixo (menos de 10 unidades)
     const lowStockProducts = await db
       .select({ count: sql`count(*)` })
       .from(products)
       .where(sql`${products.quantity} < 10`);
-    
+
     return {
       totalSales,
       totalOrders: Number(totalOrders[0]?.count || 0),
       newCustomers: Number(newCustomers[0]?.count || 0),
       lowStockProducts: Number(lowStockProducts[0]?.count || 0)
     };
+  }
+
+  // Métodos para gerenciar endereços de usuários
+
+  async getUserAddress(userId: string) {
+    try {
+      // Buscar endereço do usuário no banco de dados
+      const userAddresses = await db
+        .select()
+        .from(addresses)
+        .where(eq(addresses.userId, parseInt(userId)));
+
+      return userAddresses[0] || null;
+    } catch (error) {
+      console.error('Error getting user address:', error);
+      throw error;
+    }
+  }
+
+  async saveUserAddress(userId: string, addressData: any) {
+    try {
+      // Verificar se o usuário já tem um endereço
+      const existingAddress = await this.getUserAddress(userId);
+
+      if (existingAddress) {
+        // Atualizar endereço existente
+        const updatedAddress = await db
+          .update(addresses)
+          .set({
+            postalCode: addressData.postalCode,
+            street: addressData.street,
+            number: addressData.number || '',
+            complement: addressData.complement || '',
+            district: addressData.district,
+            city: addressData.city,
+            state: addressData.state,
+            country: addressData.country || 'Brasil',
+            updatedAt: new Date()
+          })
+          .where(eq(addresses.id, existingAddress.id))
+          .returning();
+
+        return updatedAddress[0];
+      } else {
+        // Criar novo endereço
+        const newAddress = await db
+          .insert(addresses)
+          .values({
+            userId: parseInt(userId),
+            postalCode: addressData.postalCode,
+            street: addressData.street,
+            number: addressData.number || '',
+            complement: addressData.complement || '',
+            district: addressData.district,
+            city: addressData.city,
+            state: addressData.state,
+            country: addressData.country || 'Brasil',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          })
+          .returning();
+
+        return newAddress[0];
+      }
+    } catch (error) {
+      console.error('Error saving user address:', error);
+      throw error;
+    }
+  }
+
+  // Métodos para gerenciar o perfil do usuário
+
+  async getUserProfile(userId: string) {
+    try {
+      const user = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          name: users.name,
+          email: users.email,
+          phone: users.phone,
+          cpf: users.cpf,
+          birthdate: users.birthdate,
+          role: users.role,
+          // Campos de endereço
+          address: users.address,
+          address_number: users.addressNumber,
+          address_complement: users.addressComplement,
+          district: users.district,
+          city: users.city,
+          state: users.state,
+          postal_code: users.postalCode,
+          country: users.country,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt
+        })
+        .from(users)
+        .where(eq(users.id, parseInt(userId)))
+        .limit(1);
+
+      // Se não encontrou o usuário, retornar um objeto vazio com os campos necessários
+      if (!user[0]) {
+        console.log(`Usuário não encontrado: ${userId}`);
+        return {
+          id: parseInt(userId),
+          username: '',
+          name: '',
+          email: '',
+          phone: '',
+          cpf: '',
+          birthdate: null,
+          role: 'customer',
+          address: '',
+          address_number: '',
+          address_complement: '',
+          district: '',
+          city: '',
+          state: '',
+          postal_code: '',
+          country: 'Brasil',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+      }
+
+      return user[0];
+    } catch (error) {
+      console.error('Error getting user profile:', error);
+      throw error;
+    }
+  }
+
+  async updateUserProfile(userId: string, profileData: any) {
+    try {
+      // Verificar se o e-mail já está em uso por outro usuário
+      if (profileData.email) {
+        const existingUser = await db
+          .select()
+          .from(users)
+          .where(and(
+            eq(users.email, profileData.email),
+            ne(users.id, parseInt(userId))
+          ));
+
+        if (existingUser.length > 0) {
+          throw new Error('Este e-mail já está em uso por outro usuário');
+        }
+      }
+
+      // Preparar os dados para atualização
+      const updateData: any = {
+        // Dados pessoais
+        email: profileData.email,
+        phone: profileData.phone || null,
+        cpf: profileData.cpf || null,
+        birthdate: profileData.birthdate ? new Date(profileData.birthdate) : null,
+      };
+
+      // Adicionar nome se fornecido
+      if (profileData.name) {
+        updateData.name = profileData.name;
+      } else if (profileData.fullName) {
+        updateData.fullName = profileData.fullName;
+      }
+
+      // Adicionar campos de endereço se fornecidos
+      if (profileData.address) updateData.address = profileData.address;
+      if (profileData.address_number) updateData.addressNumber = profileData.address_number;
+      if (profileData.address_complement) updateData.addressComplement = profileData.address_complement;
+      if (profileData.district) updateData.district = profileData.district;
+      if (profileData.city) updateData.city = profileData.city;
+      if (profileData.state) updateData.state = profileData.state;
+      if (profileData.postal_code) updateData.postalCode = profileData.postal_code;
+      if (profileData.country) updateData.country = profileData.country;
+
+      // Atualizar perfil do usuário
+      const updatedUser = await db
+        .update(users)
+        .set(updateData)
+        .where(eq(users.id, parseInt(userId)))
+        .returning();
+
+      console.log('Perfil do usuário atualizado com sucesso:', updatedUser[0]);
+      return updatedUser[0];
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  }
+
+  async validateUserPassword(userId: string, password: string) {
+    try {
+      const user = await db
+        .select({
+          password: users.password
+        })
+        .from(users)
+        .where(eq(users.id, parseInt(userId)))
+        .limit(1);
+
+      if (!user[0]) {
+        return false;
+      }
+
+      // Verificar senha usando bcrypt
+      const isValid = await bcrypt.compare(password, user[0].password);
+      return isValid;
+    } catch (error) {
+      console.error('Error validating user password:', error);
+      throw error;
+    }
+  }
+
+  async updateUserPassword(userId: string, newPassword: string) {
+    try {
+      // Hash da nova senha
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Atualizar senha do usuário
+      await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, parseInt(userId)));
+
+      return true;
+    } catch (error) {
+      console.error('Error updating user password:', error);
+      throw error;
+    }
   }
 }
 

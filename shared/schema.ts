@@ -1,6 +1,21 @@
-import { pgTable, text, serial, integer, timestamp, numeric, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, numeric, boolean, timestamp, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from "drizzle-orm";
+
+// Função auxiliar para lidar com arrays em diferentes bancos de dados
+const getArrayType = () => {
+  // Verifica se estamos usando SQLite (file:) ou PostgreSQL
+  const isSQLite = process.env.DATABASE_URL?.startsWith('file:');
+
+  if (isSQLite) {
+    // SQLite não suporta arrays nativamente, então usamos TEXT
+    return text("images");
+  } else {
+    // PostgreSQL suporta arrays nativamente
+    return text("images").array();
+  }
+};
 
 // User schema
 export const users = pgTable("users", {
@@ -8,15 +23,22 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
+  name: text("name"),
   fullName: text("full_name"),
   address: text("address"),
+  addressNumber: text("address_number"),
+  addressComplement: text("address_complement"),
+  district: text("district"),
   city: text("city"),
   state: text("state"),
   postalCode: text("postal_code"),
   country: text("country"),
   phone: text("phone"),
+  cpf: text("cpf"),
+  birthdate: timestamp("birthdate"),
   role: text("role").notNull().default("customer"),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
 });
 
 export const insertUserSchema = createInsertSchema(users)
@@ -28,7 +50,9 @@ export const categories = pgTable("categories", {
   name: text("name").notNull().unique(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
-  imageUrl: text("image_url")
+  imageUrl: text("image_url"),
+  parentId: integer("parent_id"),
+  order: integer("order").default(0)
 });
 
 export const insertCategorySchema = createInsertSchema(categories)
@@ -46,14 +70,14 @@ export const products = pgTable("products", {
   weight: numeric("weight", { precision: 6, scale: 2 }).notNull(),
   quantity: integer("quantity").notNull().default(0),
   categoryId: integer("category_id").notNull(),
-  images: text("images").array(),
+  images: getArrayType(), // Usa a função auxiliar para determinar o tipo correto
   ingredients: text("ingredients"),
   howToUse: text("how_to_use"),
   visible: boolean("visible").notNull().default(true),
   featured: boolean("featured").default(false),
   newArrival: boolean("new_arrival").default(false),
   bestSeller: boolean("best_seller").default(false),
-  rating: numeric("rating", { precision: 3, scale: 1 }).default("0"),
+  rating: numeric("rating", { precision: 3, scale: 1 }).default(0),
   reviewCount: integer("review_count").default(0),
   createdAt: timestamp("created_at").defaultNow()
 });
@@ -73,7 +97,7 @@ export const orders = pgTable("orders", {
   shippingPostalCode: text("shipping_postal_code").notNull(),
   shippingCountry: text("shipping_country").notNull(),
   shippingMethod: text("shipping_method"),
-  shippingCost: numeric("shipping_cost", { precision: 6, scale: 2 }),
+  shippingCost: numeric("shipping_cost", { precision: 10, scale: 2 }),
   paymentMethod: text("payment_method"),
   paymentId: text("payment_id"),
   createdAt: timestamp("created_at").defaultNow()
@@ -119,11 +143,41 @@ export const cartItems = pgTable("cart_items", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Wishlist schema
+export const wishlistItems = pgTable("wishlist_items", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  productId: integer("product_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// Address schema
+export const addresses = pgTable("addresses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique(),
+  postalCode: text("postal_code").notNull(),
+  street: text("street").notNull(),
+  number: text("number"),
+  complement: text("complement"),
+  district: text("district").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  country: text("country").notNull().default("Brasil"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 export const insertCartItemSchema = createInsertSchema(cartItems)
   .omit({ id: true, createdAt: true })
   .refine(data => data.userId !== undefined || data.sessionId !== undefined, {
     message: "Either userId or sessionId must be provided"
   });
+
+export const insertWishlistItemSchema = createInsertSchema(wishlistItems)
+  .omit({ id: true, createdAt: true });
+
+export const insertAddressSchema = createInsertSchema(addresses)
+  .omit({ id: true, createdAt: true, updatedAt: true });
 
 // Type definitions
 export type User = typeof users.$inferSelect;
@@ -146,6 +200,12 @@ export type InsertReview = z.infer<typeof insertReviewSchema>;
 
 export type CartItem = typeof cartItems.$inferSelect;
 export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
+
+export type WishlistItem = typeof wishlistItems.$inferSelect;
+export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
+
+export type Address = typeof addresses.$inferSelect;
+export type InsertAddress = z.infer<typeof insertAddressSchema>;
 
 // Helper type for product with category
 export type ProductWithCategory = Product & {

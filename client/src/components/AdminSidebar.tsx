@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   LayoutDashboard,
   Package,
@@ -10,12 +11,15 @@ import {
   Users,
   BarChart,
   Settings,
-  LogOut
+  LogOut,
+  FolderTree,
+  Truck
 } from "lucide-react";
 
 export default function AdminSidebar() {
   const [location] = useLocation();
   const { toast } = useToast();
+  const { theme } = useTheme();
 
   // Logout mutation
   const logoutMutation = useMutation({
@@ -37,8 +41,8 @@ export default function AdminSidebar() {
   };
 
   return (
-    <div className="w-full md:w-64 bg-white shadow-md">
-      <div className="p-4 border-b border-gray-200">
+    <div className="w-full md:w-64 bg-card text-card-foreground shadow-md transition-colors duration-300">
+      <div className="p-4 border-b border-border">
         <h2 className="text-xl font-bold text-primary font-heading">Admin Panel</h2>
       </div>
       <nav className="p-4">
@@ -49,8 +53,8 @@ export default function AdminSidebar() {
                 className={cn(
                   "flex items-center px-4 py-2 rounded-md transition-colors",
                   isActive("/admin")
-                    ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
                 )}
               >
                 <LayoutDashboard className="mr-3 h-5 w-5" />
@@ -59,17 +63,32 @@ export default function AdminSidebar() {
             </Link>
           </li>
           <li>
+            <Link href="/admin/categories">
+              <a
+                className={cn(
+                  "flex items-center px-4 py-2 rounded-md transition-colors",
+                  isActive("/admin/categories") || isActive("/admin/categories/add") || isActive("/admin/categories/edit")
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
+                )}
+              >
+                <FolderTree className="mr-3 h-5 w-5" />
+                Categorias
+              </a>
+            </Link>
+          </li>
+          <li>
             <Link href="/admin/products">
               <a
                 className={cn(
                   "flex items-center px-4 py-2 rounded-md transition-colors",
-                  isActive("/admin/products")
-                    ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                  isActive("/admin/products") || isActive("/admin/products/add") || isActive("/admin/products/edit")
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
                 )}
               >
                 <Package className="mr-3 h-5 w-5" />
-                Products
+                Produtos
               </a>
             </Link>
           </li>
@@ -79,12 +98,12 @@ export default function AdminSidebar() {
                 className={cn(
                   "flex items-center px-4 py-2 rounded-md transition-colors",
                   isActive("/admin/orders")
-                    ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
                 )}
               >
                 <ShoppingCart className="mr-3 h-5 w-5" />
-                Orders
+                Pedidos
               </a>
             </Link>
           </li>
@@ -94,12 +113,12 @@ export default function AdminSidebar() {
                 className={cn(
                   "flex items-center px-4 py-2 rounded-md transition-colors",
                   isActive("/admin/customers")
-                    ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
                 )}
               >
                 <Users className="mr-3 h-5 w-5" />
-                Customers
+                Clientes
               </a>
             </Link>
           </li>
@@ -109,12 +128,27 @@ export default function AdminSidebar() {
                 className={cn(
                   "flex items-center px-4 py-2 rounded-md transition-colors",
                   isActive("/admin/analytics")
-                    ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
                 )}
               >
                 <BarChart className="mr-3 h-5 w-5" />
-                Analytics
+                Análises
+              </a>
+            </Link>
+          </li>
+          <li>
+            <Link href="/admin/frenet-settings">
+              <a
+                className={cn(
+                  "flex items-center px-4 py-2 rounded-md transition-colors",
+                  isActive("/admin/frenet-settings")
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
+                )}
+              >
+                <Truck className="mr-3 h-5 w-5" />
+                Frenet
               </a>
             </Link>
           </li>
@@ -124,22 +158,22 @@ export default function AdminSidebar() {
                 className={cn(
                   "flex items-center px-4 py-2 rounded-md transition-colors",
                   isActive("/admin/settings")
-                    ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
                 )}
               >
                 <Settings className="mr-3 h-5 w-5" />
-                Settings
+                Configurações
               </a>
             </Link>
           </li>
-          <li className="pt-4 mt-4 border-t border-gray-200">
+          <li className="pt-4 mt-4 border-t border-border">
             <button
-              className="flex w-full items-center px-4 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+              className="flex w-full items-center px-4 py-2 rounded-md text-foreground hover:bg-muted transition-colors"
               onClick={() => logoutMutation.mutate()}
             >
               <LogOut className="mr-3 h-5 w-5" />
-              Logout
+              Sair
             </button>
           </li>
         </ul>

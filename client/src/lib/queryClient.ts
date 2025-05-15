@@ -1,57 +1,196 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+/**
+ * Verifica se a resposta da API é válida e lança um erro se não for
+ */
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    try {
+      const text = await res.text();
+      console.error(`API Error ${res.status}: ${text}`);
+      throw new Error(`${res.status}: ${text || res.statusText}`);
+    } catch (error) {
+      console.error(`Error parsing API response: ${error}`);
+      throw new Error(`${res.status}: ${res.statusText}`);
+    }
   }
 }
 
+/**
+ * Função para fazer requisições à API
+ *
+ * @param method - Método HTTP (GET, POST, PUT, DELETE, etc)
+ * @param url - URL da requisição
+ * @param data - Dados a serem enviados (opcional)
+ * @param customHeaders - Headers personalizados (opcional)
+ * @returns Resposta da requisição
+ */
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  customHeaders?: Record<string, string>
 ): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  try {
+    // Definir headers padrão
+    const headers: Record<string, string> = {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      ...customHeaders
+    };
 
-  await throwIfResNotOk(res);
-  return res;
-}
-
-type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    // Fazer a requisição
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    await throwIfResNotOk(res);
+    return res;
+  } catch (error) {
+    console.error(`Error in apiRequest (${method} ${url}):`, error);
+    throw error;
+  }
+}
+
+/**
+ * Tipos de comportamento para requisições não autorizadas
+ */
+type UnauthorizedBehavior = "returnNull" | "throw" | "redirect";
+
+/**
+ * Função para buscar dados da API
+ */
+export const getQueryFn: <T>(options: {
+  on401: UnauthorizedBehavior;
+  customHeaders?: Record<string, string>;
+}) => QueryFunction<T> =
+  ({ on401: unauthorizedBehavior, customHeaders = {} }) =>
+  async ({ queryKey, signal }) => {
+    // Verificar se a queryKey é uma string ou um array
+    const url = typeof queryKey[0] === 'string'
+      ? queryKey[0]
+      : Array.isArray(queryKey[0])
+        ? queryKey[0][0]
+        : '';
+
+    // Verificar se há parâmetros adicionais na queryKey
+    const params = queryKey.length > 1 ? queryKey[1] : undefined;
+
+    // Construir a URL com os parâmetros, se houver
+    const finalUrl = params
+      ? `${url}${url.includes('?') ? '&' : '?'}${new URLSearchParams(params as Record<string, string>).toString()}`
+      : url;
+
+    // Fazer a requisição
+    const res = await fetch(finalUrl, {
+      credentials: "include",
+      headers: customHeaders,
+      signal,
+    });
+
+    // Tratar erros de autenticação
+    if (res.status === 401) {
+      if (unauthorizedBehavior === "returnNull") {
+        return null;
+      } else if (unauthorizedBehavior === "redirect") {
+        window.location.href = "/login";
+        return null;
+      }
     }
 
     await throwIfResNotOk(res);
     return await res.json();
   };
 
+/**
+ * Função para buscar dados do usuário do Supabase
+ */
+export const getUserQueryFn: <T>(options: {
+  on401: UnauthorizedBehavior;
+}) => QueryFunction<T> =
+  ({ on401: unauthorizedBehavior }) =>
+  async ({ queryKey }) => {
+    // A queryKey deve ser um array com pelo menos um elemento
+    if (!Array.isArray(queryKey) || queryKey.length === 0) {
+      throw new Error("Invalid queryKey");
+    }
+
+    // O primeiro elemento da queryKey deve ser a URL base
+    const baseUrl = queryKey[0] as string;
+
+    // O segundo elemento da queryKey pode ser o ID do usuário
+    const userId = queryKey.length > 1 ? queryKey[1] : undefined;
+
+    // Construir a URL final
+    const url = userId ? `${baseUrl}/${userId}` : baseUrl;
+
+    // Fazer a requisição
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: {
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache"
+      }
+    });
+
+    // Tratar erros de autenticação
+    if (res.status === 401) {
+      if (unauthorizedBehavior === "returnNull") {
+        return null;
+      } else if (unauthorizedBehavior === "redirect") {
+        window.location.href = "/login";
+        return null;
+      }
+    }
+
+    await throwIfResNotOk(res);
+    return await res.json();
+  };
+
+/**
+ * Função para invalidar queries relacionadas ao usuário
+ *
+ * @param userId - ID do usuário
+ */
+export function invalidateUserQueries(userId?: string | number) {
+  queryClient.invalidateQueries({
+    predicate: (query) => {
+      const queryKey = query.queryKey;
+      if (!queryKey || !Array.isArray(queryKey)) return false;
+
+      // Verificar se a query está relacionada ao usuário
+      const isUserQuery =
+        queryKey.includes('user-profile') ||
+        queryKey.includes('user-address') ||
+        queryKey.includes('/api/users');
+
+      // Se não houver userId, invalidar todas as queries de usuário
+      if (!userId) return isUserQuery;
+
+      // Se houver userId, invalidar apenas as queries desse usuário
+      return isUserQuery && queryKey.includes(userId.toString());
+    }
+  });
+}
+
+/**
+ * Cliente de queries para a aplicação
+ */
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: getQueryFn({ on401: "returnNull" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
     mutations: {
-      retry: false,
+      retry: 1,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
   },
 });

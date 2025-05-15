@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   Dialog,
   DialogContent,
@@ -49,7 +50,8 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const { toast } = useToast();
-  
+  const { theme } = useTheme();
+
   const ordersPerPage = limit || 10;
 
   // Fetch all orders
@@ -65,13 +67,13 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
-        title: "Order status updated",
+        title: "Status do pedido atualizado",
         variant: "default",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error updating order status",
+        title: "Erro ao atualizar status do pedido",
         description: error.message,
         variant: "destructive",
       });
@@ -84,17 +86,17 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
     if (statusFilter !== "all" && order.status !== statusFilter) {
       return false;
     }
-    
+
     // Filter by search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       const orderIdMatch = `#ORD-${order.id}`.toLowerCase().includes(searchLower);
       const userNameMatch = order.user.fullName?.toLowerCase().includes(searchLower) || false;
       const userEmailMatch = order.user.email.toLowerCase().includes(searchLower);
-      
+
       return orderIdMatch || userNameMatch || userEmailMatch;
     }
-    
+
     return true;
   }) : [];
 
@@ -103,7 +105,7 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
     (currentPage - 1) * ordersPerPage,
     currentPage * ordersPerPage
   );
-  
+
   const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
   // Handle order details view
@@ -121,15 +123,15 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>;
+        return <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800">Pendente</Badge>;
       case "processing":
-        return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">Processing</Badge>;
+        return <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800">Processando</Badge>;
       case "shipping":
-        return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">Shipping</Badge>;
+        return <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800">Enviando</Badge>;
       case "delivered":
-        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Delivered</Badge>;
+        return <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800">Entregue</Badge>;
       case "cancelled":
-        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Cancelled</Badge>;
+        return <Badge variant="outline" className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800">Cancelado</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -160,25 +162,25 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
 
   if (isError) {
     return (
-      <div className="text-center py-10 text-red-500">
-        Error loading orders. Please try again later.
+      <div className="text-center py-10 text-red-500 dark:text-red-400">
+        Erro ao carregar pedidos. Por favor, tente novamente mais tarde.
       </div>
     );
   }
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-sm">
+      <div className="bg-card text-card-foreground rounded-lg shadow-sm border border-border transition-colors duration-300">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>ID do Pedido</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Data</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Total</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -189,11 +191,11 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
                     <TableCell>
                       <div>
                         <div className="font-medium">{order.user.fullName || order.user.username}</div>
-                        <div className="text-gray-500 text-sm">{order.user.email}</div>
+                        <div className="text-muted-foreground text-sm">{order.user.email}</div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {new Date(order.createdAt).toLocaleDateString('en-US', {
+                      {new Date(order.createdAt).toLocaleDateString('pt-BR', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric'
@@ -205,14 +207,14 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
                     <TableCell>{formatCurrency(parseFloat(order.total))}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleViewDetails(order)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 border-border"
                         >
                           <EyeIcon className="h-4 w-4 mr-1" />
-                          Details
+                          Detalhes
                         </Button>
                       </div>
                     </TableCell>
@@ -221,22 +223,22 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-10">
-                    No orders found
+                    Nenhum pedido encontrado
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
-        
+
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex justify-center p-4">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious 
-                    href="#" 
+                  <PaginationPrevious
+                    href="#"
                     onClick={(e) => {
                       e.preventDefault();
                       if (currentPage > 1) setCurrentPage(currentPage - 1);
@@ -244,19 +246,19 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
                     className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
                   />
                 </PaginationItem>
-                
+
                 {[...Array(totalPages)].map((_, i) => {
                   const page = i + 1;
-                  
+
                   // Only show a limited number of pages
                   if (
-                    page === 1 || 
-                    page === totalPages || 
+                    page === 1 ||
+                    page === totalPages ||
                     (page >= currentPage - 1 && page <= currentPage + 1)
                   ) {
                     return (
                       <PaginationItem key={page}>
-                        <Button 
+                        <Button
                           variant={page === currentPage ? "default" : "outline"}
                           size="icon"
                           onClick={() => setCurrentPage(page)}
@@ -269,10 +271,10 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
                   }
                   return null;
                 })}
-                
+
                 <PaginationItem>
-                  <PaginationNext 
-                    href="#" 
+                  <PaginationNext
+                    href="#"
                     onClick={(e) => {
                       e.preventDefault();
                       if (currentPage < totalPages) setCurrentPage(currentPage + 1);
@@ -288,53 +290,53 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
 
       {/* Order Details Dialog */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl bg-background text-foreground border-border">
           <DialogHeader>
-            <DialogTitle>Order Details - #{selectedOrder && `ORD-${selectedOrder.id}`}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle>Detalhes do Pedido - #{selectedOrder && `ORD-${selectedOrder.id}`}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               {selectedOrder && (
                 <span>
-                  Placed on {new Date(selectedOrder.createdAt).toLocaleString()}
+                  Realizado em {new Date(selectedOrder.createdAt).toLocaleString('pt-BR')}
                 </span>
               )}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedOrder && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <h3 className="font-medium">Customer Information</h3>
-                  <p>Name: {selectedOrder.user.fullName || selectedOrder.user.username}</p>
+                  <h3 className="font-medium">Informações do Cliente</h3>
+                  <p>Nome: {selectedOrder.user.fullName || selectedOrder.user.username}</p>
                   <p>Email: {selectedOrder.user.email}</p>
                 </div>
-                
+
                 <div className="space-y-2">
-                  <h3 className="font-medium">Shipping Information</h3>
+                  <h3 className="font-medium">Informações de Envio</h3>
                   <p>{selectedOrder.shippingAddress}</p>
                   <p>{selectedOrder.shippingCity}, {selectedOrder.shippingState}</p>
                   <p>{selectedOrder.shippingPostalCode}, {selectedOrder.shippingCountry}</p>
-                  <p>Shipping Method: {selectedOrder.shippingMethod}</p>
+                  <p>Método de Envio: {selectedOrder.shippingMethod}</p>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-medium">Order Status</h3>
-                  <Select 
-                    value={selectedOrder.status} 
+                  <h3 className="font-medium">Status do Pedido</h3>
+                  <Select
+                    value={selectedOrder.status}
                     onValueChange={(value) => handleStatusChange(selectedOrder.id, value)}
                     disabled={updateOrderStatusMutation.isPending}
                   >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select status" />
+                    <SelectTrigger className="w-[180px] bg-background border-border">
+                      <SelectValue placeholder="Selecionar status" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="processing">Processing</SelectItem>
-                      <SelectItem value="shipping">Shipping</SelectItem>
-                      <SelectItem value="delivered">Delivered</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectContent className="bg-popover text-popover-foreground border-border">
+                      <SelectItem value="pending">Pendente</SelectItem>
+                      <SelectItem value="processing">Processando</SelectItem>
+                      <SelectItem value="shipping">Enviando</SelectItem>
+                      <SelectItem value="delivered">Entregue</SelectItem>
+                      <SelectItem value="cancelled">Cancelado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -342,9 +344,9 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Quantity</TableHead>
+                        <TableHead>Produto</TableHead>
+                        <TableHead>Preço</TableHead>
+                        <TableHead>Quantidade</TableHead>
                         <TableHead>Total</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -361,19 +363,19 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
                   </Table>
                 </div>
               </div>
-              
-              <div className="space-y-2 border-t pt-4">
+
+              <div className="space-y-2 border-t border-border pt-4">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
                   <span>{formatCurrency(
                     selectedOrder.items.reduce(
-                      (sum: number, item: any) => sum + (parseFloat(item.price) * item.quantity), 
+                      (sum: number, item: any) => sum + (parseFloat(item.price) * item.quantity),
                       0
                     )
                   )}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Shipping</span>
+                  <span>Frete</span>
                   <span>{formatCurrency(parseFloat(selectedOrder.shippingCost) || 0)}</span>
                 </div>
                 <div className="flex justify-between font-bold">
@@ -383,10 +385,10 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
               </div>
             </div>
           )}
-          
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>
-              Close
+            <Button variant="outline" onClick={() => setViewDetailsOpen(false)} className="border-border">
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

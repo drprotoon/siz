@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import AdminSidebar from "@/components/AdminSidebar";
 import StatsCards from "@/components/admin/StatsCards";
 import OrderTable from "@/components/admin/OrderTable";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   Card,
   CardContent,
@@ -30,8 +31,9 @@ export default function AdminDashboard() {
   const { data: authData } = useQuery({
     queryKey: ["/api/auth/me"],
   });
-  
+
   const isAdmin = authData?.user?.role === "admin";
+  const { theme } = useTheme();
 
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -59,14 +61,14 @@ export default function AdminDashboard() {
   // Prepare category distribution data
   const getCategoryDistribution = () => {
     if (!products) return [];
-    
+
     const categoryCounts: Record<string, number> = {};
-    
+
     products.forEach((product: any) => {
       const categoryName = product.category.name;
       categoryCounts[categoryName] = (categoryCounts[categoryName] || 0) + 1;
     });
-    
+
     return Object.entries(categoryCounts).map(([name, value]) => ({
       name,
       value,
@@ -74,32 +76,32 @@ export default function AdminDashboard() {
   };
 
   const categoryData = getCategoryDistribution();
-  
+
   // Colors for pie chart
   const COLORS = ["#FF6B81", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF"];
 
   if (!isAdmin) {
     return (
-      <div className="text-center py-20">
+      <div className="text-center py-20 bg-background text-foreground transition-colors duration-300">
         <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
-        <p className="text-gray-600">You don't have permission to access this page.</p>
+        <p className="text-muted-foreground">You don't have permission to access this page.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-100">
+    <div className="flex flex-col md:flex-row h-screen bg-background text-foreground transition-colors duration-300">
       <AdminSidebar />
-      
+
       <div className="flex-1 overflow-auto p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-2 font-heading">Dashboard Overview</h1>
-          <p className="text-gray-600">Welcome back, Admin! Here's what's happening with your store today.</p>
+          <p className="text-muted-foreground">Welcome back, Admin! Here's what's happening with your store today.</p>
         </div>
-        
+
         {/* Stats Cards */}
         <StatsCards stats={stats} loading={statsLoading} />
-        
+
         {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Card>
@@ -123,7 +125,7 @@ export default function AdminDashboard() {
               )}
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle>Product Categories</CardTitle>
@@ -157,7 +159,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
-        
+
         {/* Recent Orders */}
         <Card className="mb-8">
           <CardHeader>
@@ -168,7 +170,7 @@ export default function AdminDashboard() {
             <OrderTable limit={5} />
           </CardContent>
         </Card>
-        
+
         {/* Performance Metrics */}
         <Card>
           <CardHeader>
@@ -184,8 +186,8 @@ export default function AdminDashboard() {
               <TabsContent value="sales">
                 <div className="py-4">
                   <h3 className="text-lg font-medium mb-2">Monthly Sales Growth</h3>
-                  <p className="text-gray-600 mb-4">Showing a 16.5% increase compared to last month.</p>
-                  <div className="h-4 bg-gray-200 rounded-full">
+                  <p className="text-muted-foreground mb-4">Showing a 16.5% increase compared to last month.</p>
+                  <div className="h-4 bg-muted rounded-full">
                     <div className="h-4 bg-primary rounded-full" style={{ width: "16.5%" }}></div>
                   </div>
                 </div>
@@ -193,8 +195,8 @@ export default function AdminDashboard() {
               <TabsContent value="visits">
                 <div className="py-4">
                   <h3 className="text-lg font-medium mb-2">Website Visits</h3>
-                  <p className="text-gray-600 mb-4">12.3% increase in unique visitors this month.</p>
-                  <div className="h-4 bg-gray-200 rounded-full">
+                  <p className="text-muted-foreground mb-4">12.3% increase in unique visitors this month.</p>
+                  <div className="h-4 bg-muted rounded-full">
                     <div className="h-4 bg-primary rounded-full" style={{ width: "12.3%" }}></div>
                   </div>
                 </div>
@@ -202,8 +204,8 @@ export default function AdminDashboard() {
               <TabsContent value="conversions">
                 <div className="py-4">
                   <h3 className="text-lg font-medium mb-2">Conversion Rate</h3>
-                  <p className="text-gray-600 mb-4">Current conversion rate is 3.2%</p>
-                  <div className="h-4 bg-gray-200 rounded-full">
+                  <p className="text-muted-foreground mb-4">Current conversion rate is 3.2%</p>
+                  <div className="h-4 bg-muted rounded-full">
                     <div className="h-4 bg-primary rounded-full" style={{ width: "3.2%" }}></div>
                   </div>
                 </div>

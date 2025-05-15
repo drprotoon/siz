@@ -2,137 +2,140 @@ import { Link } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Facebook, Instagram, Twitter, Youtube } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function Footer() {
+  const { theme } = useTheme();
+
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     // Logic for newsletter subscription could be added here
   };
 
   return (
-    <footer className="bg-white border-t border-gray-200">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <footer className="bg-background border-t border-border transition-colors duration-300">
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-lg font-bold mb-4 font-heading">BeautyEssence</h3>
-            <p className="text-gray-600 mb-4">Premium cosmetics for your unique beauty needs. Discover the best products for your skincare, makeup, and haircare routine.</p>
-            <div className="bg-blue-50 p-3 rounded-md border border-blue-100 text-sm text-gray-700 mb-4">
+            <h3 className="text-lg font-bold mb-4 font-heading text-foreground">SIZ COSMETICOS</h3>
+            <p className="text-muted-foreground mb-4">Cosméticos premium para suas necessidades únicas de beleza. Descubra os melhores produtos para sua rotina de skincare, maquiagem e cuidados com o cabelo.</p>
+            <div className="bg-muted p-3 rounded-md border border-border text-sm text-muted-foreground mb-4">
               <p><strong>Compras sem complicação:</strong> Navegue, adicione ao carrinho e só faça login na hora de finalizar a compra.</p>
             </div>
             <div className="flex space-x-4">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary transition-colors">
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                 <Facebook size={20} />
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary transition-colors">
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                 <Instagram size={20} />
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary transition-colors">
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                 <Twitter size={20} />
               </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary transition-colors">
+              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                 <Youtube size={20} />
               </a>
             </div>
           </div>
-          
-          <div>
-            <h3 className="text-lg font-bold mb-4 font-heading">Shop</h3>
+
+          <div className="mt-8 sm:mt-0">
+            <h3 className="text-lg font-bold mb-4 font-heading text-foreground">Comprar</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/category/skincare">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Skincare</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Skincare</span>
                 </Link>
               </li>
               <li>
                 <Link href="/category/makeup">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Makeup</a>
-                </Link>
-              </li>
-              <li>
-                <Link href="/category/haircare">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Haircare</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Maquiagem</span>
                 </Link>
               </li>
               <li>
                 <Link href="/category/fragrance">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Fragrance</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Fragrâncias</span>
                 </Link>
               </li>
               <li>
                 <Link href="/new-arrivals">
-                  <a className="text-gray-600 hover:text-primary transition-colors">New Arrivals</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Novidades</span>
                 </Link>
               </li>
               <li>
                 <Link href="/best-sellers">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Best Sellers</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Mais Vendidos</span>
                 </Link>
               </li>
             </ul>
           </div>
-          
-          <div>
-            <h3 className="text-lg font-bold mb-4 font-heading">Information</h3>
+
+          <div className="mt-8 lg:mt-0">
+            <h3 className="text-lg font-bold mb-4 font-heading text-foreground">Informações</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/about">
-                  <a className="text-gray-600 hover:text-primary transition-colors">About Us</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Sobre Nós</span>
                 </Link>
               </li>
               <li>
                 <Link href="/contact">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Contact Us</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Contato</span>
                 </Link>
               </li>
               <li>
                 <Link href="/shipping-returns">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Shipping & Returns</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Envio & Devoluções</span>
                 </Link>
               </li>
               <li>
                 <Link href="/privacy-policy">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Privacy Policy</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Política de Privacidade</span>
                 </Link>
               </li>
               <li>
                 <Link href="/terms">
-                  <a className="text-gray-600 hover:text-primary transition-colors">Terms & Conditions</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Termos & Condições</span>
                 </Link>
               </li>
               <li>
                 <Link href="/faq">
-                  <a className="text-gray-600 hover:text-primary transition-colors">FAQ</a>
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">FAQ</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/track-order">
+                  <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">Rastrear Pedido</span>
                 </Link>
               </li>
             </ul>
           </div>
-          
-          <div>
-            <h3 className="text-lg font-bold mb-4 font-heading">Newsletter</h3>
-            <p className="text-gray-600 mb-4">Subscribe to receive updates, access to exclusive deals, and more.</p>
+
+          <div className="mt-8 lg:mt-0">
+            <h3 className="text-lg font-bold mb-4 font-heading text-foreground">Newsletter</h3>
+            <p className="text-muted-foreground mb-4">Inscreva-se para receber atualizações, acesso a ofertas exclusivas e mais.</p>
             <form className="mb-4" onSubmit={handleSubscribe}>
-              <div className="flex">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   type="email"
-                  placeholder="Your email address"
-                  className="flex-1 rounded-r-none"
+                  placeholder="Seu endereço de email"
+                  className="flex-1 rounded-r-none sm:rounded-r-none bg-background"
                   required
                 />
                 <Button
                   type="submit"
-                  className="bg-primary hover:bg-pink-600 text-white rounded-l-none transition-colors"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-l-none sm:rounded-l-none transition-colors"
                 >
-                  Subscribe
+                  Inscrever
                 </Button>
               </div>
             </form>
-            <p className="text-gray-500 text-sm">By subscribing, you agree to our Privacy Policy and consent to receive updates from our company.</p>
+            <p className="text-muted-foreground text-sm">Ao se inscrever, você concorda com nossa Política de Privacidade e consente em receber atualizações de nossa empresa.</p>
           </div>
         </div>
-        
-        <div className="border-t border-gray-200 mt-12 pt-8">
+
+        <div className="border-t border-border mt-8 md:mt-12 pt-6 md:pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-500 mb-4 md:mb-0">&copy; {new Date().getFullYear()} BeautyEssence. All rights reserved.</p>
+            <p className="text-muted-foreground mb-4 md:mb-0">&copy; {new Date().getFullYear()} SIZ COSMETICOS. Todos os direitos reservados.</p>
             <div className="flex items-center space-x-4">
               <svg className="h-8" viewBox="0 0 60 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="60" height="40" rx="4" fill="#1A1F71"/>

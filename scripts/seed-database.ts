@@ -2,89 +2,153 @@ import { db } from "../server/db";
 import { users, categories, products, reviews } from "../shared/schema";
 import * as bcrypt from "bcrypt";
 import { eq } from "drizzle-orm";
+import * as dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Helper function to convert string to array for PostgreSQL
+function stringToArray(str: string): string[] {
+  if (Array.isArray(str)) return str;
+  try {
+    const parsed = JSON.parse(str);
+    return Array.isArray(parsed) ? parsed : [str];
+  } catch (e) {
+    return [str];
+  }
+}
+
+// Get the directory of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from .env file
+dotenv.config({ path: join(__dirname, '..', '.env') });
 
 async function seedDatabase() {
   console.log("Iniciando o processo de seed do banco de dados...");
 
   try {
-    // Limpar o banco de dados existente (opcional)
-    await db.delete(reviews);
-    await db.delete(products);
-    await db.delete(categories);
-    await db.delete(users);
+    // Verificar se já existem dados no banco
+    const existingProducts = await db.select().from(products);
 
-    console.log("Dados existentes removidos com sucesso");
+    if (existingProducts.length > 0) {
+      console.log(`Já existem ${existingProducts.length} produtos no banco de dados.`);
+      console.log("Pulando a limpeza do banco para preservar os dados existentes.");
+    } else {
+      // Limpar o banco de dados apenas se não houver produtos
+      await db.delete(reviews);
+      await db.delete(products);
+      await db.delete(categories);
+      // Não vamos deletar os usuários para preservar contas existentes
+
+      console.log("Banco de dados limpo para inserção de novos dados");
+    }
 
     // Criar usuários de teste
     const hashedPassword = await bcrypt.hash("123456", 10);
-    
-    const [adminUser] = await db.insert(users).values({
-      username: "admin",
-      password: hashedPassword,
-      email: "admin@beautyessence.com",
-      role: "admin",
-      fullName: "Administrador",
-      address: "Av Paulista, 1000",
-      city: "São Paulo",
-      state: "SP",
-      postalCode: "01310-100",
-      country: "Brasil",
-      phone: "11987654321"
-    }).returning();
-    
-    const [testUser] = await db.insert(users).values({
-      username: "teste",
-      password: hashedPassword,
-      email: "teste@exemplo.com",
-      role: "customer",
-      fullName: "Usuário Teste",
-      address: "Rua Exemplo, 123",
-      city: "Rio de Janeiro",
-      state: "RJ",
-      postalCode: "22222-222",
-      country: "Brasil",
-      phone: "21987654321"
-    }).returning();
-    
+
+    // Verificar se o usuário admin já existe
+    const existingAdmin = await db.select().from(users).where(eq(users.username, "admin"));
+    let adminUser;
+
+    if (existingAdmin.length === 0) {
+      [adminUser] = await db.insert(users).values({
+        username: "admin",
+        password: hashedPassword,
+        email: "admin@beautyessence.com",
+        role: "admin",
+        fullName: "Administrador",
+        address: "Av Paulista, 1000",
+        city: "São Paulo",
+        state: "SP",
+        postalCode: "01310-100",
+        country: "Brasil",
+        phone: "11987654321"
+      }).returning();
+      console.log("Usuário admin criado com sucesso");
+    } else {
+      adminUser = existingAdmin[0];
+      console.log("Usuário admin já existe, pulando criação");
+    }
+
+    // Verificar se o usuário teste já existe
+    const existingTest = await db.select().from(users).where(eq(users.username, "teste"));
+    let testUser;
+
+    if (existingTest.length === 0) {
+      [testUser] = await db.insert(users).values({
+        username: "teste",
+        password: hashedPassword,
+        email: "teste@exemplo.com",
+        role: "customer",
+        fullName: "Usuário Teste",
+        address: "Rua Exemplo, 123",
+        city: "Rio de Janeiro",
+        state: "RJ",
+        postalCode: "22222-222",
+        country: "Brasil",
+        phone: "21987654321"
+      }).returning();
+      console.log("Usuário teste criado com sucesso");
+    } else {
+      testUser = existingTest[0];
+      console.log("Usuário teste já existe, pulando criação");
+    }
+
     console.log(`Usuários criados: ${adminUser.id}, ${testUser.id}`);
 
-    // Criar categorias
-    const categoryData = [
-      {
-        name: "Skincare",
-        slug: "skincare",
-        description: "Produtos para cuidados com a pele",
-        imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
-      },
-      {
-        name: "Maquiagem",
-        slug: "maquiagem",
-        description: "Produtos de maquiagem para todos os tipos de pele",
-        imageUrl: "https://images.unsplash.com/photo-1596704017248-eb02655de3e4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
-      },
-      {
-        name: "Cabelos",
-        slug: "cabelos",
-        description: "Produtos para cuidados com os cabelos",
-        imageUrl: "https://images.unsplash.com/photo-1576426863848-c21f53c60b19?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
-      },
-      {
-        name: "Corpo & Banho",
-        slug: "corpo-banho",
-        description: "Produtos para cuidados com o corpo",
-        imageUrl: "https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1771&q=80"
-      },
-      {
-        name: "Fragrâncias",
-        slug: "fragrancias",
-        description: "Perfumes e fragrâncias para todos os gostos",
-        imageUrl: "https://images.unsplash.com/photo-1595425964072-537c688fe172?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
-      }
-    ];
-    
-    const createdCategories = await db.insert(categories).values(categoryData).returning();
-    console.log(`Categorias criadas: ${createdCategories.length}`);
-    
+    // Verificar categorias existentes
+    const existingCategories = await db.select().from(categories);
+    let createdCategories;
+
+    if (existingCategories.length > 0) {
+      console.log(`Já existem ${existingCategories.length} categorias no banco de dados.`);
+      createdCategories = existingCategories;
+    } else {
+      // Criar categorias
+      const categoryData = [
+        {
+          name: "Skincare",
+          slug: "skincare",
+          description: "Produtos para cuidados com a pele",
+          imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+        },
+        {
+          name: "Maquiagem",
+          slug: "maquiagem",
+          description: "Produtos de maquiagem para todos os tipos de pele",
+          imageUrl: "https://images.unsplash.com/photo-1596704017248-eb02655de3e4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+        },
+        {
+          name: "Cabelos",
+          slug: "cabelos",
+          description: "Produtos para cuidados com os cabelos",
+          imageUrl: "https://images.unsplash.com/photo-1576426863848-c21f53c60b19?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+        },
+        {
+          name: "Corpo & Banho",
+          slug: "corpo-banho",
+          description: "Produtos para cuidados com o corpo",
+          imageUrl: "https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1771&q=80"
+        },
+        {
+          name: "Fragrâncias",
+          slug: "fragrancias",
+          description: "Perfumes e fragrâncias para todos os gostos",
+          imageUrl: "https://images.unsplash.com/photo-1595425964072-537c688fe172?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+        },
+        {
+          name: "Kits",
+          slug: "kits",
+          description: "Kits de produtos para cuidados completos",
+          imageUrl: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80"
+        }
+      ];
+
+      createdCategories = await db.insert(categories).values(categoryData).returning();
+      console.log(`Categorias criadas: ${createdCategories.length}`);
+    }
+
     // Mapear categorias por slug para referência mais fácil
     const categoryMap = createdCategories.reduce((map, category) => {
       map[category.slug] = category.id;
@@ -148,7 +212,7 @@ async function seedDatabase() {
         newArrival: false,
         bestSeller: false
       },
-      
+
       // Maquiagem
       {
         name: "Base de Longa Duração",
@@ -204,7 +268,7 @@ async function seedDatabase() {
         newArrival: false,
         bestSeller: true
       },
-      
+
       // Cabelos
       {
         name: "Shampoo Hidratante",
@@ -260,7 +324,7 @@ async function seedDatabase() {
         newArrival: false,
         bestSeller: false
       },
-      
+
       // Corpo & Banho
       {
         name: "Gel de Banho Relaxante",
@@ -316,7 +380,7 @@ async function seedDatabase() {
         newArrival: false,
         bestSeller: false
       },
-      
+
       // Fragrâncias
       {
         name: "Eau de Parfum Floral",
@@ -371,12 +435,258 @@ async function seedDatabase() {
         featured: false,
         newArrival: false,
         bestSeller: false
+      },
+
+      // Kits Wella
+      {
+        name: "Kit Wella Nutri Enrich Nutrição Profunda 1L",
+        slug: "kit-wella-nutri-enrich-nutricao-profunda-1l",
+        description: "Kit completo para nutrição profunda dos cabelos, contendo Shampoo de 1 litro, Condicionador de 1 litro e Máscara de 500 gramas.",
+        price: "623.70",
+        compareAtPrice: "699.90",
+        sku: "WELLA-KIT-001",
+        weight: "2500.00",
+        quantity: 15,
+        categoryId: categoryMap["kits"],
+        images: [],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Proteínas, Vitaminas, Óleos Essenciais",
+        howToUse: "Aplique o shampoo nos cabelos molhados, massageie e enxágue. Em seguida, aplique o condicionador, deixe agir por 3 minutos e enxágue. Para tratamento intensivo, aplique a máscara após o shampoo, deixe agir por 5-10 minutos e enxágue.",
+        visible: true,
+        featured: true,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Kit Wella Nutri Enrich 250ml",
+        slug: "kit-wella-nutri-enrich-250ml",
+        description: "Kit para nutrição dos cabelos, contendo Shampoo de 250ml, Condicionador de 200ml e Máscara de 150ml.",
+        price: "340.70",
+        compareAtPrice: "399.90",
+        sku: "WELLA-KIT-002",
+        weight: "600.00",
+        quantity: 20,
+        categoryId: categoryMap["kits"],
+        images: [],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Proteínas, Vitaminas, Óleos Essenciais",
+        howToUse: "Aplique o shampoo nos cabelos molhados, massageie e enxágue. Em seguida, aplique o condicionador, deixe agir por 3 minutos e enxágue. Para tratamento intensivo, aplique a máscara após o shampoo, deixe agir por 5-10 minutos e enxágue.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Kit Wella Color Brilliance 1L",
+        slug: "kit-wella-color-brilliance-1l",
+        description: "Kit para proteção da cor e hidratação, contendo Shampoo de 1 litro, Condicionador de 1 litro e Máscara de 500ml.",
+        price: "633.70",
+        compareAtPrice: "699.90",
+        sku: "WELLA-KIT-003",
+        weight: "2500.00",
+        quantity: 15,
+        categoryId: categoryMap["kits"],
+        images: [],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Proteínas, Vitaminas, Óleos Essenciais, Filtro UV",
+        howToUse: "Aplique o shampoo nos cabelos molhados, massageie e enxágue. Em seguida, aplique o condicionador, deixe agir por 3 minutos e enxágue. Para tratamento intensivo, aplique a máscara após o shampoo, deixe agir por 5-10 minutos e enxágue.",
+        visible: true,
+        featured: true,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Kit Wella Color Brilliance 250ml",
+        slug: "kit-wella-color-brilliance-250ml",
+        description: "Kit para proteção da cor e hidratação, contendo Shampoo de 250ml e Máscara de 150ml.",
+        price: "228.80",
+        compareAtPrice: "249.90",
+        sku: "WELLA-KIT-004",
+        weight: "400.00",
+        quantity: 20,
+        categoryId: categoryMap["kits"],
+        images: [],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Proteínas, Vitaminas, Óleos Essenciais, Filtro UV",
+        howToUse: "Aplique o shampoo nos cabelos molhados, massageie e enxágue. Para tratamento intensivo, aplique a máscara após o shampoo, deixe agir por 5-10 minutos e enxágue.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Kit Wella Fusion Reparação Intensa",
+        slug: "kit-wella-fusion-reparacao-intensa",
+        description: "Kit para reparação intensa dos cabelos, contendo Shampoo de 1 litro e Máscara de 500ml.",
+        price: "585.80",
+        compareAtPrice: "629.90",
+        sku: "WELLA-KIT-005",
+        weight: "1500.00",
+        quantity: 10,
+        categoryId: categoryMap["kits"],
+        images: [],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Proteínas, Aminoácidos, Óleos Essenciais",
+        howToUse: "Aplique o shampoo nos cabelos molhados, massageie e enxágue. Para tratamento intensivo, aplique a máscara após o shampoo, deixe agir por 5-10 minutos e enxágue.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Kit Sebastian Wella Revitalizante 1L",
+        slug: "kit-sebastian-wella-revitalizante-1l",
+        description: "Kit revitalizante para cabelos, contendo Shampoo de 1 litro, Condicionador de 1 litro e Máscara de 500ml.",
+        price: "999.70",
+        compareAtPrice: "1099.90",
+        sku: "WELLA-KIT-006",
+        weight: "2500.00",
+        quantity: 8,
+        categoryId: categoryMap["kits"],
+        images: [],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Proteínas, Vitaminas, Óleos Essenciais",
+        howToUse: "Aplique o shampoo nos cabelos molhados, massageie e enxágue. Em seguida, aplique o condicionador, deixe agir por 3 minutos e enxágue. Para tratamento intensivo, aplique a máscara após o shampoo, deixe agir por 5-10 minutos e enxágue.",
+        visible: true,
+        featured: true,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Óleo Oil Reflections 100ml",
+        slug: "oleo-oil-reflections-100ml",
+        description: "Óleo para cabelos que proporciona brilho intenso e hidratação profunda.",
+        price: "179.90",
+        compareAtPrice: null,
+        sku: "WELLA-OIL-001",
+        weight: "100.00",
+        quantity: 25,
+        categoryId: categoryMap["cabelos"],
+        images: [],
+        ingredients: "Óleo de Argan, Óleo de Macadâmia, Vitamina E, Silicones",
+        howToUse: "Aplique algumas gotas nas pontas dos cabelos úmidos ou secos para controlar o frizz e adicionar brilho.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Óleo Oil Reflections 30ml",
+        slug: "oleo-oil-reflections-30ml",
+        description: "Óleo para cabelos que proporciona brilho intenso e hidratação profunda.",
+        price: "76.90",
+        compareAtPrice: null,
+        sku: "WELLA-OIL-002",
+        weight: "30.00",
+        quantity: 30,
+        categoryId: categoryMap["cabelos"],
+        images: [],
+        ingredients: "Óleo de Argan, Óleo de Macadâmia, Vitamina E, Silicones",
+        howToUse: "Aplique algumas gotas nas pontas dos cabelos úmidos ou secos para controlar o frizz e adicionar brilho.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Óleo Oil Reflections Light 100ml",
+        slug: "oleo-oil-reflections-light-100ml",
+        description: "Óleo leve para cabelos finos que proporciona brilho sem pesar.",
+        price: "179.90",
+        compareAtPrice: null,
+        sku: "WELLA-OIL-003",
+        weight: "100.00",
+        quantity: 25,
+        categoryId: categoryMap["cabelos"],
+        images: [],
+        ingredients: "Óleo de Camélia, Óleo de Abacate, Vitamina E, Silicones Leves",
+        howToUse: "Aplique algumas gotas nas pontas dos cabelos úmidos ou secos para controlar o frizz e adicionar brilho sem pesar.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Óleo Oil Reflections Light 30ml",
+        slug: "oleo-oil-reflections-light-30ml",
+        description: "Óleo leve para cabelos finos que proporciona brilho sem pesar.",
+        price: "76.90",
+        compareAtPrice: null,
+        sku: "WELLA-OIL-004",
+        weight: "30.00",
+        quantity: 30,
+        categoryId: categoryMap["cabelos"],
+        images: [],
+        ingredients: "Óleo de Camélia, Óleo de Abacate, Vitamina E, Silicones Leves",
+        howToUse: "Aplique algumas gotas nas pontas dos cabelos úmidos ou secos para controlar o frizz e adicionar brilho sem pesar.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Kit Sebastian Penetraitt Wella 1L",
+        slug: "kit-sebastian-penetraitt-wella-1l",
+        description: "Kit para cabelos danificados, contendo Shampoo de 1 litro, Condicionador de 1 litro e Máscara de 500ml.",
+        price: "729.70",
+        compareAtPrice: "799.90",
+        sku: "WELLA-KIT-007",
+        weight: "2500.00",
+        quantity: 10,
+        categoryId: categoryMap["kits"],
+        images: [],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Proteínas, Queratina, Óleos Essenciais",
+        howToUse: "Aplique o shampoo nos cabelos molhados, massageie e enxágue. Em seguida, aplique o condicionador, deixe agir por 3 minutos e enxágue. Para tratamento intensivo, aplique a máscara após o shampoo, deixe agir por 5-10 minutos e enxágue.",
+        visible: true,
+        featured: true,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Kit Wella Hidratação e Luminosidade 250ml",
+        slug: "kit-wella-hidratacao-luminosidade-250ml",
+        description: "Kit para hidratação e luminosidade dos cabelos, contendo Shampoo de 250ml, Condicionador de 200ml e Máscara de 150ml.",
+        price: "441.70",
+        compareAtPrice: "499.90",
+        sku: "WELLA-KIT-008",
+        weight: "600.00",
+        quantity: 20,
+        categoryId: categoryMap["kits"],
+        images: [],
+        ingredients: "Água, Lauril Sulfato de Sódio, Cocamidopropil Betaína, Proteínas, Vitaminas, Óleos Essenciais",
+        howToUse: "Aplique o shampoo nos cabelos molhados, massageie e enxágue. Em seguida, aplique o condicionador, deixe agir por 3 minutos e enxágue. Para tratamento intensivo, aplique a máscara após o shampoo, deixe agir por 5-10 minutos e enxágue.",
+        visible: true,
+        featured: false,
+        newArrival: true,
+        bestSeller: false
+      },
+      {
+        name: "Máscara Wella Oil Reflection 500ml",
+        slug: "mascara-wella-oil-reflection-500ml",
+        description: "Máscara de tratamento intensivo que proporciona brilho e hidratação profunda aos cabelos.",
+        price: "309.90",
+        compareAtPrice: null,
+        sku: "WELLA-MASK-001",
+        weight: "500.00",
+        quantity: 15,
+        categoryId: categoryMap["cabelos"],
+        images: [],
+        ingredients: "Água, Álcool Cetílico, Óleo de Argan, Óleo de Macadâmia, Queratina, Proteínas da Seda",
+        howToUse: "Após lavar os cabelos com shampoo, aplique a máscara mecha por mecha, deixe agir por 5-10 minutos e enxágue abundantemente.",
+        visible: true,
+        featured: true,
+        newArrival: true,
+        bestSeller: false
       }
     ];
-    
-    const createdProducts = await db.insert(products).values(productData).returning();
-    console.log(`Produtos criados: ${createdProducts.length}`);
-    
+
+    // Verificar se já existem produtos
+    const productsInDb = await db.select().from(products);
+    let createdProducts;
+
+    if (productsInDb.length > 0) {
+      console.log(`Já existem ${productsInDb.length} produtos no banco de dados.`);
+      createdProducts = productsInDb;
+    } else {
+      // Criar produtos
+      createdProducts = await db.insert(products).values(productData).returning();
+      console.log(`Produtos criados: ${createdProducts.length}`);
+    }
+
     // Adicionar avaliações aos produtos
     const reviewsData = [
       {
@@ -415,25 +725,33 @@ async function seedDatabase() {
         comment: "Deixa a pele muito macia, mas o cheiro poderia ser mais agradável."
       }
     ];
-    
-    const createdReviews = await db.insert(reviews).values(reviewsData).returning();
-    console.log(`Avaliações criadas: ${createdReviews.length}`);
-    
+
+    // Verificar se já existem avaliações
+    const existingReviews = await db.select().from(reviews);
+
+    if (existingReviews.length > 0) {
+      console.log(`Já existem ${existingReviews.length} avaliações no banco de dados.`);
+    } else {
+      // Criar avaliações
+      const createdReviews = await db.insert(reviews).values(reviewsData).returning();
+      console.log(`Avaliações criadas: ${createdReviews.length}`);
+    }
+
     // Atualizar as médias de avaliações dos produtos
     for (const product of createdProducts) {
       const productReviews = await db.select().from(reviews).where(eq(reviews.productId, product.id));
-      
+
       if (productReviews.length > 0) {
         const totalRating = productReviews.reduce((sum, review) => sum + review.rating, 0);
         const avgRating = (totalRating / productReviews.length).toFixed(1);
-        
+
         await db.update(products)
           .set({
             rating: avgRating,
             reviewCount: productReviews.length
           })
           .where(eq(products.id, product.id));
-        
+
         console.log(`Atualizada a média de avaliações do produto ${product.id}: ${avgRating} (${productReviews.length} avaliações)`);
       }
     }
