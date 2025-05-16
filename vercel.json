@@ -1,24 +1,17 @@
 {
   "version": 2,
-  "buildCommand": "node scripts/vercel-simple-deploy.js",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/public",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/server.js" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "/api/(.*)", "dest": "/api/server.js" },
-    { "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))", "dest": "/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "builds": [
     {
       "src": "api/server.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["api/**"],
+        "includeFiles": ["dist/**", "server/**"],
         "nodeVersion": "22.x"
       }
     },

@@ -1,12 +1,14 @@
-// Servidor Express simplificado para o Vercel
+// Servidor Express unificado para Vercel
 import express from 'express';
-import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
+import cors from 'cors';
 
 // Configuração para ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
 
 // Criar app Express
 const app = express();
@@ -23,154 +25,89 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Rotas da API
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    message: 'API está funcionando!',
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV || 'production'
-  });
-});
-
-// Rota para categorias (mock)
-app.get('/api/categories', (req, res) => {
-  res.json([
-    { id: 1, name: 'Perfumes Femininos', slug: 'perfumes-femininos' },
-    { id: 2, name: 'Perfumes Masculinos', slug: 'perfumes-masculinos' },
-    { id: 3, name: 'Skincare', slug: 'skincare' },
-    { id: 4, name: 'Maquiagem', slug: 'maquiagem' }
-  ]);
-});
-
-// Rota para produtos (mock)
-app.get('/api/products', (req, res) => {
-  const products = [
-    {
-      id: 1,
-      name: 'Perfume Feminino',
-      slug: 'perfume-feminino',
-      description: 'Um perfume delicado com notas florais',
-      price: 129.90,
-      compareAtPrice: 149.90,
-      images: ['https://placehold.co/400x400?text=Perfume'],
-      categoryId: 1,
-      category: { id: 1, name: 'Perfumes Femininos', slug: 'perfumes-femininos' },
-      featured: true,
-      visible: true
-    },
-    {
-      id: 2,
-      name: 'Perfume Masculino',
-      slug: 'perfume-masculino',
-      description: 'Um perfume marcante com notas amadeiradas',
-      price: 139.90,
-      compareAtPrice: 159.90,
-      images: ['https://placehold.co/400x400?text=Perfume'],
-      categoryId: 2,
-      category: { id: 2, name: 'Perfumes Masculinos', slug: 'perfumes-masculinos' },
-      featured: true,
-      visible: true
-    }
-  ];
-
-  // Filtrar por categoria se especificado
-  if (req.query.category) {
-    return res.json(products.filter(p => p.category.slug === req.query.category));
-  }
-
-  // Filtrar por featured se especificado
-  if (req.query.featured === 'true') {
-    return res.json(products.filter(p => p.featured));
-  }
-
-  res.json(products);
-});
-
-// Rota para produto específico
-app.get('/api/products/:slug', (req, res) => {
-  const products = [
-    {
-      id: 1,
-      name: 'Perfume Feminino',
-      slug: 'perfume-feminino',
-      description: 'Um perfume delicado com notas florais',
-      price: 129.90,
-      compareAtPrice: 149.90,
-      images: ['https://placehold.co/400x400?text=Perfume'],
-      categoryId: 1,
-      category: { id: 1, name: 'Perfumes Femininos', slug: 'perfumes-femininos' },
-      featured: true,
-      visible: true
-    },
-    {
-      id: 2,
-      name: 'Perfume Masculino',
-      slug: 'perfume-masculino',
-      description: 'Um perfume marcante com notas amadeiradas',
-      price: 139.90,
-      compareAtPrice: 159.90,
-      images: ['https://placehold.co/400x400?text=Perfume'],
-      categoryId: 2,
-      category: { id: 2, name: 'Perfumes Masculinos', slug: 'perfumes-masculinos' },
-      featured: true,
-      visible: true
-    }
-  ];
-
-  const product = products.find(p => p.slug === req.params.slug);
-
-  if (product) {
-    return res.json(product);
-  }
-
-  res.status(404).json({ message: 'Produto não encontrado' });
-});
-
-// Rota para autenticação (mock)
-app.get('/api/auth/me', (req, res) => {
-  res.json({
-    user: null
-  });
-});
-
-// Rota para login (mock)
-app.post('/api/auth/login', (req, res) => {
-  const { username, password } = req.body;
-
-  if (username && password) {
-    return res.json({
-      message: 'Login successful',
-      user: {
-        id: 1,
-        username,
-        role: 'customer',
-        timestamp: new Date().getTime()
-      }
+// Importar rotas dinamicamente
+const registerRoutes = async () => {
+  try {
+    // Tentar importar as rotas do servidor original
+    const { registerRoutes } = await import('../dist/server/server/routes.js');
+    return registerRoutes(app);
+  } catch (error) {
+    console.error('Erro ao importar rotas originais:', error);
+    
+    // Fallback para rotas básicas
+    app.get('/api/health', (req, res) => {
+      res.json({
+        status: 'ok',
+        message: 'API está funcionando!',
+        timestamp: new Date().toISOString()
+      });
     });
+    
+    return app;
   }
+};
 
-  res.status(401).json({ message: 'Invalid credentials' });
-});
+// Servir arquivos estáticos
+const serveStatic = () => {
+  // Encontrar o diretório de arquivos estáticos
+  const possiblePaths = [
+    path.resolve(rootDir, 'dist', 'public'),
+    path.resolve(rootDir, 'public')
+  ];
 
-// Rota para logout (mock)
-app.post('/api/auth/logout', (req, res) => {
-  res.json({ message: 'Logout successful' });
-});
+  const distPath = possiblePaths.find(p => fs.existsSync(p)) || path.resolve(rootDir, 'dist', 'public');
 
-// Rota para carrinho (mock)
-app.get('/api/cart', (req, res) => {
-  res.json([]);
-});
+  console.log(`Servindo arquivos estáticos de: ${distPath}`);
 
-// Rota de fallback para endpoints não encontrados
-app.all('/api/*', (req, res) => {
-  res.status(404).json({
-    message: 'API endpoint not found',
-    path: req.path,
-    method: req.method
+  // Servir arquivos estáticos
+  app.use(express.static(distPath));
+
+  // Lidar com rotas do cliente
+  app.get('*', (req, res) => {
+    // Ignorar rotas de API
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ message: 'API endpoint não encontrado' });
+    }
+
+    const indexPath = path.join(distPath, 'index.html');
+
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    } else {
+      return res.status(404).send('Não encontrado: index.html está faltando');
+    }
   });
-});
+};
 
-// Export the Express API
+// Inicializar o servidor
+const initServer = async () => {
+  try {
+    // Registrar rotas da API
+    await registerRoutes();
+
+    // Middleware de tratamento de erros
+    app.use((err, req, res, next) => {
+      console.error('Erro no servidor:', err);
+      res.status(500).json({ message: 'Erro Interno do Servidor' });
+    });
+
+    // Servir arquivos estáticos e lidar com rotas do cliente
+    serveStatic();
+
+    // Iniciar servidor se não estiver no ambiente Vercel
+    if (process.env.VERCEL !== '1') {
+      const port = process.env.PORT || 5000;
+      app.listen(port, () => {
+        console.log(`Servidor rodando na porta ${port}`);
+      });
+    }
+  } catch (error) {
+    console.error('Falha ao inicializar servidor:', error);
+  }
+};
+
+// Inicializar o servidor
+initServer();
+
+// Exportar para Vercel
 export default app;
