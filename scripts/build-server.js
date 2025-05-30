@@ -35,22 +35,7 @@ function runCommand(command, description) {
 // Compilar o servidor com esbuild
 console.log('Compilando o servidor para produção...');
 
-// Copiar o arquivo api/index.js para dist/api/index.js
-const apiDir = path.join(distDir, 'api');
-if (!fs.existsSync(apiDir)) {
-  fs.mkdirSync(apiDir, { recursive: true });
-}
-
-// Copiar todos os arquivos da pasta api para dist/api
-const apiSrcDir = path.join(rootDir, 'api');
-if (fs.existsSync(apiSrcDir)) {
-  const apiFiles = fs.readdirSync(apiSrcDir);
-  for (const file of apiFiles) {
-    const srcPath = path.join(apiSrcDir, file);
-    const destPath = path.join(apiDir, file);
-    fs.copyFileSync(srcPath, destPath);
-    console.log(`Copiado: ${srcPath} -> ${destPath}`);
-  }
-}
+// API handlers are now part of the TypeScript server build
+// No need to copy separate API directory
 
 console.log('✅ Compilação do servidor concluída com sucesso');
