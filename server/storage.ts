@@ -742,44 +742,13 @@ export class MemStorage implements IStorage {
     return true;
   }
 
-  // Freight calculation
+  // Freight calculation - delegated to shipping service
   async calculateFreight(postalCode: string, weight: number): Promise<FreightCalculationResponse> {
-    // Simulate API call to a shipping service
-    // In a real implementation, this would call an external API
+    // Import the shipping calculation function from our shipping module
+    const { calculateShipping } = await import('./shipping');
 
-    // Mock freight calculation based on postal code and weight
-    const basePrice = Math.round(weight * 0.5 * 100) / 100; // 0.5 per gram
-
-    // Different options based on weight and distance
-    const options: FreightOption[] = [
-      {
-        name: "Econômico",
-        price: basePrice + 12.90,
-        estimatedDays: "5-7 dias úteis"
-      },
-      {
-        name: "Padrão",
-        price: basePrice + 24.90,
-        estimatedDays: "2-3 dias úteis"
-      }
-    ];
-
-    // Add overnight option for smaller items
-    if (weight < 500) {
-      options.push({
-        name: "Expresso",
-        price: basePrice + 39.90,
-        estimatedDays: "1 dia útil"
-      });
-    }
-
-    // Simulate a short delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    return {
-      options,
-      postalCode
-    };
+    // Calculate shipping options based on weight and postal code
+    return await calculateShipping(weight, postalCode);
   }
 
   // Payment processing

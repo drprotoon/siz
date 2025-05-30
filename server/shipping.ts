@@ -1,7 +1,18 @@
 import { FreightCalculationResponse, FreightOption } from "@shared/schema";
 import { calculateShippingWithCorreios, getFallbackShippingOptions } from "./correios";
+import { freightCache } from "./freight-cache";
 import axios from "axios";
-import { FrenetShippingService } from "../client/src/lib/frenetService";
+
+/**
+ * Interface for Frenet API response
+ */
+interface FrenetShippingService {
+  Carrier: string;
+  ServiceDescription: string;
+  ShippingPrice: number;
+  DeliveryTime: number;
+  Error: string | null;
+}
 
 /**
  * Interface para provedores de cálculo de frete
@@ -248,6 +259,7 @@ const shippingManager = new ShippingManager();
 
 /**
  * Calculate shipping options based on total weight and destination postal code
+ * Uses cache to improve performance and reduce API calls
  *
  * @param totalWeight - Total weight of the order in grams
  * @param postalCode - Destination postal code
@@ -266,32 +278,51 @@ export async function calculateShipping(totalWeight: number, postalCode: string)
   // Format postal code (remove non-numeric characters)
   const formattedPostalCode = postalCode.replace(/\D/g, "");
 
+  // Check cache first
+  const cachedResult = freightCache.getCached(formattedPostalCode, totalWeight);
+  if (cachedResult) {
+    console.log(`Using cached freight calculation for ${formattedPostalCode} - ${totalWeight}g`);
+    return cachedResult;
+  }
+
   try {
+    console.log(`Calculating fresh freight for ${formattedPostalCode} - ${totalWeight}g`);
+
     // Calcular opções de frete de todos os provedores
     const options = await shippingManager.calculateAllOptions(formattedPostalCode, totalWeight);
 
+    let result: FreightCalculationResponse;
+
     if (options.length === 0) {
       // Se nenhuma opção for retornada, usar valores de fallback
-      return {
+      result = {
         options: getFallbackShippingOptions(totalWeight),
+        postalCode: formattedPostalCode
+      };
+    } else {
+      result = {
+        options,
         postalCode: formattedPostalCode
       };
     }
 
-    return {
-      options,
-      postalCode: formattedPostalCode
-    };
+    // Cache the result
+    freightCache.setCached(formattedPostalCode, totalWeight, result);
+
+    return result;
   } catch (error) {
     console.error("Erro ao calcular frete:", error);
 
     // Em caso de falha, usar valores de fallback
-    const options = getFallbackShippingOptions(totalWeight);
-
-    return {
-      options,
+    const fallbackResult = {
+      options: getFallbackShippingOptions(totalWeight),
       postalCode: formattedPostalCode
     };
+
+    // Cache fallback result with shorter TTL (5 minutes)
+    freightCache.setCached(formattedPostalCode, totalWeight, fallbackResult, 5 * 60 * 1000);
+
+    return fallbackResult;
   }
 }
 
