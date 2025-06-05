@@ -26,7 +26,7 @@ https://siz-cosmetic-store-pro.vercel.app/api/webhook/abacatepay?webhookSecret=S
 ABACATEPAY_API_KEY=abacate_live_xxxxxxxxxxxxxxxx
 ABACATEPAY_API_URL=https://api.abacatepay.com
 ABACATEPAY_WEBHOOK_SECRET=minha-chave-secreta-super-segura
-WEBHOOK_BASE_URL=https://siz-cosmetic-store-pro.vercel.app
+WEBHOOK_BASE_URL=https://siz-cosmetic-store-pro.vercel.app/api/webhook/abacatepay
 ```
 
 ## Como Usar os Componentes

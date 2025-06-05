@@ -13,6 +13,7 @@ import {
   insertWishlistItemSchema
 } from "@shared/schema";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -217,12 +218,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(401).json({ message: "Unauthorized" });
   };
 
+  // JWT middleware for admin authentication
+  const isAdminJWT = async (req: Request, res: Response, next: Function) => {
+    try {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log("JWT Admin check: No token provided");
+        return res.status(401).json({
+          error: "Unauthorized. Admin access required.",
+          message: "No token provided"
+        });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+
+      if (!process.env.JWT_SECRET) {
+        console.error("JWT_SECRET not configured");
+        return res.status(500).json({
+          error: "Server configuration error"
+        });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+
+      if (decoded.role !== 'admin') {
+        console.log("JWT Admin check: User is not admin", {
+          username: decoded.username,
+          role: decoded.role
+        });
+        return res.status(403).json({
+          error: "Unauthorized. Admin access required.",
+          message: "Insufficient permissions"
+        });
+      }
+
+      // Add user info to request for use in route handlers
+      req.user = {
+        id: decoded.id,
+        username: decoded.username,
+        email: decoded.email || '',
+        role: decoded.role
+      };
+
+      console.log("JWT Admin access granted for user:", decoded.username);
+      next();
+    } catch (error) {
+      console.error("JWT Admin check error:", error);
+      res.status(401).json({
+        error: "Unauthorized. Admin access required.",
+        message: "Invalid token"
+      });
+    }
+  };
+
   const isAdmin = (req: Request, res: Response, next: Function) => {
-    if (req.isAuthenticated() && req.user.role === "admin") {
+    console.log("Admin check - Auth details:", {
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user,
+      userRole: req.user?.role,
+      sessionId: req.session?.id,
+      cookies: req.headers.cookie,
+      environment: process.env.NODE_ENV,
+      hasAuthHeader: !!req.headers.authorization
+    });
+
+    // Try JWT authentication first if Authorization header is present
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      console.log("Using JWT authentication for admin check");
+      return isAdminJWT(req, res, next);
+    }
+
+    // Fallback to session-based authentication
+    if (req.isAuthenticated() && req.user && req.user.role === "admin") {
+      console.log("Session-based admin access granted for user:", req.user.username);
       return next();
     }
-    console.log("Access denied: User is not authenticated as admin");
-    res.status(403).json({ message: "Forbidden" });
+
+    console.log("Access denied: User is not authenticated as admin", {
+      isAuthenticated: req.isAuthenticated(),
+      userRole: req.user?.role || 'no user',
+      hasUser: !!req.user,
+      hasAuthHeader: !!req.headers.authorization
+    });
+
+    res.status(403).json({
+      error: "Unauthorized. Admin access required.",
+      details: {
+        isAuthenticated: req.isAuthenticated(),
+        userRole: req.user?.role || null,
+        hasUser: !!req.user,
+        hasAuthHeader: !!req.headers.authorization
+      }
+    });
   };
 
   // Middleware para rotas de storage - permite acesso mesmo sem autenticação em desenvolvimento
@@ -328,6 +416,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // JWT-based login for serverless environments
+  app.post("/api/auth/login-jwt", authLimiter, validateRequest(validationSchemas.login), async (req, res) => {
+    try {
+      console.log("JWT Login attempt:", req.body.username);
+
+      const user = await storage.getUserByUsername(req.body.username);
+      if (!user) {
+        console.log("User not found:", req.body.username);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      const isValidPassword = await bcrypt.compare(req.body.password, user.password);
+      if (!isValidPassword) {
+        console.log("Invalid password for user:", req.body.username);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Generate JWT token
+      if (!process.env.JWT_SECRET) {
+        console.error("JWT_SECRET not configured");
+        return res.status(500).json({ message: "Server configuration error" });
+      }
+
+      const token = jwt.sign(
+        {
+          id: user.id,
+          username: user.username,
+          email: user.email || '',
+          role: user.role
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      console.log("JWT login successful for user:", user.username, "role:", user.role);
+
+      res.json({
+        message: "Login successful",
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          timestamp: new Date().getTime()
+        }
+      });
+    } catch (error) {
+      console.error("JWT login error:", error);
+      res.status(500).json({ message: "Login error" });
+    }
+  });
+
+  // JWT-based admin check
+  app.get("/api/auth/admin-check", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+          isAdmin: false,
+          message: "No token provided"
+        });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+
+      if (!process.env.JWT_SECRET) {
+        return res.status(500).json({
+          isAdmin: false,
+          message: "Server configuration error"
+        });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+      const isAdmin = decoded.role === 'admin';
+
+      console.log("JWT admin check:", {
+        username: decoded.username,
+        role: decoded.role,
+        isAdmin
+      });
+
+      res.json({
+        isAdmin,
+        user: {
+          id: decoded.id,
+          username: decoded.username,
+          role: decoded.role
+        }
+      });
+    } catch (error) {
+      console.error("JWT admin check error:", error);
+      res.status(401).json({
+        isAdmin: false,
+        message: "Invalid token"
+      });
+    }
+  });
+
   app.get("/api/auth/me", (req, res) => {
     console.log("Auth check request received");
     console.log("Is authenticated:", req.isAuthenticated());
@@ -345,6 +532,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("User not authenticated");
       res.status(401).json({ message: "Not authenticated" });
     }
+  });
+
+  // Auth status endpoint for debugging
+  app.get('/api/auth/status', (req, res) => {
+    // Return detailed information about the authentication state
+    res.json({
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user || null,
+      session: {
+        id: req.session?.id || null,
+        cookie: {
+          ...req.session?.cookie,
+          // Convert dates to strings for JSON serialization
+          expires: req.session?.cookie?.expires?.toISOString() || null,
+        },
+      },
+      headers: {
+        cookie: req.headers.cookie || null,
+        origin: req.headers.origin || null,
+        host: req.headers.host || null,
+        referer: req.headers.referer || null,
+      },
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'unknown',
+        VERCEL: process.env.VERCEL || 'unknown',
+      }
+    });
   });
 
   // Debug route to check authentication
@@ -1709,9 +1923,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin dashboard stats
   app.get("/api/admin/stats", isAdmin, async (req, res) => {
     try {
+      console.log("Fetching admin stats for user:", req.user?.username);
       const stats = await storage.getStats();
+      console.log("Admin stats fetched successfully:", stats);
       res.json(stats);
     } catch (error) {
+      console.error("Error fetching admin stats:", error);
       res.status(500).json({ message: "Error fetching stats" });
     }
   });
