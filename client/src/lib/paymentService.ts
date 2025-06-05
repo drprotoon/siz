@@ -25,19 +25,19 @@ export interface PaymentIntent {
 export const paymentMethods: PaymentMethod[] = [
   {
     id: "credit_card",
-    name: "Credit/Debit Card",
+    name: "Cartão de Crédito/Débito",
     type: "credit_card",
     icon: "credit-card"
   },
   {
     id: "boleto",
-    name: "Boleto",
+    name: "Boleto Bancário",
     type: "boleto",
     icon: "file-text"
   },
   {
     id: "pix",
-    name: "Pix",
+    name: "PIX (AbacatePay)",
     type: "pix",
     icon: "qr-code"
   }

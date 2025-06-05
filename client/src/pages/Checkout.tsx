@@ -10,19 +10,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Loader2, CreditCard, Truck, MapPin, ShoppingBag, ArrowLeft, Check, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, CreditCard, Truck, MapPin, ShoppingBag, ArrowLeft, Check, Clock, AlertTriangle, QrCode, Copy } from 'lucide-react';
 import AddressForm from '@/components/AddressForm';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 import { formatCurrency } from '@/lib/utils';
 import { processPayment } from '@/lib/paymentService';
 import { useUserAddress } from '@/hooks/use-user-data';
 import { useShipping } from '@/contexts/ShippingContext';
 import { useCart } from '@/contexts/CartContext';
+import { PixCheckout } from '@/components/checkout/PixCheckout';
+import {
+  type CustomerInfo,
+  createAbacatePayment,
+  generateQRCodeImage,
+  type CreateAbacatePaymentData
+} from '@/lib/abacatePayService';
+import { type FrenetShippingService } from '@/lib/frenetService';
 // Frenet integrado ao freight-client
 
-// Não precisamos mais definir a interface FrenetShippingService aqui, pois estamos importando do frenetService.ts
-
-// Não precisamos mais definir a interface CartItem aqui, pois estamos importando do CartContext
 
 
 
@@ -35,8 +40,13 @@ export default function CheckoutPage() {
     selectedShipping: FrenetShippingService | null,
     setSelectedShipping: (shipping: FrenetShippingService | null) => void
   };
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('credit_card');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('pix'); // PIX como padrão
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
+  const [showPixCheckout, setShowPixCheckout] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
+  const [pixPaymentData, setPixPaymentData] = useState<any>(null);
+  const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
 
   // CEP do vendedor (loja) - Deve ser configurado de acordo com o endereço da loja
   const SELLER_CEP = "74591-990"; // Exemplo: CEP da Av. Paulista em São Paulo
@@ -73,6 +83,13 @@ export default function CheckoutPage() {
       console.log('Frete selecionado no contexto:', selectedShipping);
     }
   }, [selectedShipping]);
+
+  // Gerar PIX automaticamente quando estiver na aba de pagamento e PIX estiver selecionado
+  useEffect(() => {
+    if (activeTab === 'payment' && selectedPaymentMethod === 'pix' && user && !pixPaymentData && !isGeneratingPix) {
+      generatePixPayment();
+    }
+  }, [activeTab, selectedPaymentMethod, user, pixPaymentData, isGeneratingPix]);
 
   // Buscar opções de frete quando o endereço estiver disponível
   const { isLoading: isShippingLoading, refetch: refetchShipping, data: shippingOptions } = useQuery<FrenetShippingService[]>({
@@ -284,8 +301,64 @@ export default function CheckoutPage() {
   };
 
   // Handle payment method selection
-  const handlePaymentMethodSelect = (method: string) => {
+  const handlePaymentMethodSelect = async (method: string) => {
     setSelectedPaymentMethod(method);
+
+    // Se PIX for selecionado, gerar o pagamento automaticamente
+    if (method === 'pix') {
+      await generatePixPayment();
+    } else {
+      // Limpar dados do PIX se outro método for selecionado
+      setPixPaymentData(null);
+      setQrCodeImage(null);
+    }
+  };
+
+  // Gerar pagamento PIX
+  const generatePixPayment = async () => {
+    if (!user) return;
+
+    setIsGeneratingPix(true);
+    try {
+      const customerInfo: CustomerInfo = {
+        name: user.username || 'Cliente',
+        email: user.email || '',
+        phone: undefined // Campo phone não está disponível no User básico
+      };
+
+      const paymentData: CreateAbacatePaymentData = {
+        amount: total,
+        orderId: Date.now(), // Usar timestamp temporário
+        customerInfo
+      };
+
+      const response = await createAbacatePayment(paymentData);
+      setPixPaymentData(response);
+
+      // Gerar QR Code se tiver o texto PIX
+      if (response.qrCodeText) {
+        try {
+          const qrImage = await generateQRCodeImage(response.qrCodeText);
+          setQrCodeImage(qrImage);
+        } catch (qrError) {
+          console.error('Erro ao gerar QR Code:', qrError);
+        }
+      }
+
+      toast({
+        title: 'PIX gerado com sucesso',
+        description: 'Escaneie o QR Code ou copie o código PIX para pagar.',
+      });
+    } catch (error) {
+      console.error('Erro ao gerar PIX:', error);
+      toast({
+        title: 'Erro ao gerar PIX',
+        description: 'Não foi possível gerar o pagamento PIX. Tente novamente.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingPix(false);
+    }
   };
 
   // Handle place order
@@ -321,15 +394,9 @@ export default function CheckoutPage() {
     setIsProcessingOrder(true);
 
     try {
-      // Process payment
-      const paymentResult = await processPayment({
-        amount: total,
-        method: selectedPaymentMethod,
-        currency: 'BRL'
-      });
-
-      if (paymentResult.success) {
-        // Create order
+      // Se for PIX, criar pedido primeiro e depois mostrar checkout PIX
+      if (selectedPaymentMethod === 'pix') {
+        // Create order first
         const orderItems = cartItems.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -339,11 +406,7 @@ export default function CheckoutPage() {
         // Preparar dados do pedido
         const orderData: any = {
           items: orderItems,
-          payment: {
-            method: selectedPaymentMethod,
-            transactionId: paymentResult.transactionId,
-            status: 'approved'
-          },
+          payment: selectedPaymentMethod,
           subtotal: calculateSubtotal(),
           shippingCost: selectedShipping ? selectedShipping.ShippingPrice : 0,
           total: total
@@ -351,31 +414,74 @@ export default function CheckoutPage() {
 
         // Adicionar endereço se disponível
         if (addressData) {
-          orderData.shippingAddress = {
-            postalCode: addressData.postalCode || '',
-            street: addressData.street || '',
-            number: addressData.number || '',
-            complement: addressData.complement || '',
-            district: addressData.district || '',
-            city: addressData.city || '',
-            state: addressData.state || '',
-            country: addressData.country || 'Brasil'
-          };
+          orderData.shippingAddress = addressData.street || '';
+          orderData.shippingCity = addressData.city || '';
+          orderData.shippingState = addressData.state || '';
+          orderData.shippingPostalCode = addressData.postalCode || '';
+          orderData.shippingCountry = addressData.country || 'Brasil';
         }
 
         // Adicionar método de envio se disponível
         if (selectedShipping) {
-          orderData.shippingMethod = {
-            carrier: selectedShipping.Carrier,
-            service: selectedShipping.ServiceDescription,
-            price: selectedShipping.ShippingPrice,
-            estimatedDelivery: selectedShipping.DeliveryTime
-          };
+          orderData.shippingMethod = `${selectedShipping.Carrier} - ${selectedShipping.ServiceDescription}`;
+          orderData.shippingCost = selectedShipping.ShippingPrice;
         }
 
-        createOrderMutation.mutate(orderData);
+        // Criar pedido
+        const response = await apiRequest('POST', '/api/orders', orderData);
+        const order = await response.json();
+
+        setCurrentOrderId(order.id);
+        setShowPixCheckout(true);
+
       } else {
-        throw new Error('Falha no processamento do pagamento. Por favor, tente novamente.');
+        // Processar outros métodos de pagamento (simulado)
+        const paymentResult = await processPayment({
+          amount: total,
+          method: selectedPaymentMethod,
+          currency: 'BRL'
+        });
+
+        if (paymentResult.success) {
+          // Create order
+          const orderItems = cartItems.map((item) => ({
+            productId: item.product.id,
+            quantity: item.quantity,
+            price: item.product.price
+          }));
+
+          // Preparar dados do pedido
+          const orderData: any = {
+            items: orderItems,
+            payment: {
+              method: selectedPaymentMethod,
+              transactionId: paymentResult.transactionId,
+              status: 'approved'
+            },
+            subtotal: calculateSubtotal(),
+            shippingCost: selectedShipping ? selectedShipping.ShippingPrice : 0,
+            total: total
+          };
+
+          // Adicionar endereço se disponível
+          if (addressData) {
+            orderData.shippingAddress = addressData.street || '';
+            orderData.shippingCity = addressData.city || '';
+            orderData.shippingState = addressData.state || '';
+            orderData.shippingPostalCode = addressData.postalCode || '';
+            orderData.shippingCountry = addressData.country || 'Brasil';
+          }
+
+          // Adicionar método de envio se disponível
+          if (selectedShipping) {
+            orderData.shippingMethod = `${selectedShipping.Carrier} - ${selectedShipping.ServiceDescription}`;
+            orderData.shippingCost = selectedShipping.ShippingPrice;
+          }
+
+          createOrderMutation.mutate(orderData);
+        } else {
+          throw new Error('Falha no processamento do pagamento. Por favor, tente novamente.');
+        }
       }
     } catch (error: any) {
       toast({
@@ -386,6 +492,32 @@ export default function CheckoutPage() {
     } finally {
       setIsProcessingOrder(false);
     }
+  };
+
+  // Handle PIX payment success
+  const handlePixPaymentSuccess = () => {
+    // Limpar carrinho usando o contexto
+    clearCart();
+
+    // Limpar dados de frete
+    clearShipping();
+
+    // Redirecionar para página de confirmação
+    if (currentOrderId) {
+      navigate(`/order-confirmation/${currentOrderId}`);
+    }
+
+    toast({
+      title: 'Pagamento confirmado!',
+      description: 'Seu pagamento PIX foi processado com sucesso.',
+      variant: 'default'
+    });
+  };
+
+  // Handle PIX payment cancel
+  const handlePixPaymentCancel = () => {
+    setShowPixCheckout(false);
+    setCurrentOrderId(null);
   };
 
   // Loading state
@@ -423,6 +555,49 @@ export default function CheckoutPage() {
         <Button onClick={() => navigate('/')}>
           Continuar comprando
         </Button>
+      </div>
+    );
+  }
+
+  // Se estiver mostrando checkout PIX, renderizar apenas o componente PIX
+  if (showPixCheckout && currentOrderId) {
+    const customerInfo: CustomerInfo = {
+      name: user?.username || '',
+      email: user?.email || ''
+    };
+
+    return (
+      <div className="max-w-6xl mx-auto py-8">
+        <div className="flex items-center mb-8">
+          <Button
+            variant="ghost"
+            onClick={handlePixPaymentCancel}
+            className="mr-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+          <h1 className="text-3xl font-bold">Pagamento PIX</h1>
+        </div>
+
+        <div className="flex justify-center">
+          <PixCheckout
+            amount={total}
+            orderId={currentOrderId}
+            customerInfo={customerInfo}
+            onPaymentSuccess={handlePixPaymentSuccess}
+            onPaymentError={(error) => {
+              console.error('Payment error:', error);
+              toast({
+                title: 'Erro no pagamento',
+                description: error,
+                variant: 'destructive'
+              });
+              setShowPixCheckout(false);
+            }}
+            onCancel={handlePixPaymentCancel}
+          />
+        </div>
       </div>
     );
   }
@@ -605,6 +780,22 @@ export default function CheckoutPage() {
                 </CardHeader>
                 <CardContent>
                   <RadioGroup value={selectedPaymentMethod} onValueChange={handlePaymentMethodSelect}>
+                    {/* PIX - Método Recomendado */}
+                    <div className={`border-2 p-4 rounded-md mb-3 cursor-pointer hover:border-primary relative ${
+                      selectedPaymentMethod === 'pix' ? 'border-primary bg-primary/5' : 'border-green-200'
+                    }`}>
+                      <div className="absolute -top-2 left-4 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                        RECOMENDADO
+                      </div>
+                      <div className="flex items-center">
+                        <RadioGroupItem value="pix" id="pix" className="mr-3" />
+                        <Label htmlFor="pix" className="flex-1 cursor-pointer">
+                          <div className="font-medium text-green-700">PIX</div>
+                          <div className="text-sm text-green-600">Pagamento instantâneo • Aprovação imediata</div>
+                        </Label>
+                      </div>
+                    </div>
+
                     <div className={`border p-4 rounded-md mb-3 cursor-pointer hover:border-primary ${
                       selectedPaymentMethod === 'credit_card' ? 'border-primary bg-primary/5' : ''
                     }`}>
@@ -613,18 +804,6 @@ export default function CheckoutPage() {
                         <Label htmlFor="credit_card" className="flex-1 cursor-pointer">
                           <div className="font-medium">Cartão de Crédito</div>
                           <div className="text-sm text-gray-500">Visa, Mastercard, Elo, American Express</div>
-                        </Label>
-                      </div>
-                    </div>
-
-                    <div className={`border p-4 rounded-md mb-3 cursor-pointer hover:border-primary ${
-                      selectedPaymentMethod === 'pix' ? 'border-primary bg-primary/5' : ''
-                    }`}>
-                      <div className="flex items-center">
-                        <RadioGroupItem value="pix" id="pix" className="mr-3" />
-                        <Label htmlFor="pix" className="flex-1 cursor-pointer">
-                          <div className="font-medium">PIX</div>
-                          <div className="text-sm text-gray-500">Pagamento instantâneo</div>
                         </Label>
                       </div>
                     </div>
@@ -641,6 +820,74 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </RadioGroup>
+
+                  {/* Seção do QR Code PIX */}
+                  {selectedPaymentMethod === 'pix' && (
+                    <div className="mt-6 p-4 border rounded-md bg-green-50">
+                      <h3 className="font-medium text-green-800 mb-4 flex items-center">
+                        <QrCode className="mr-2 h-5 w-5" />
+                        Pagamento PIX
+                      </h3>
+
+                      {isGeneratingPix ? (
+                        <div className="flex flex-col items-center py-8">
+                          <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
+                          <p className="text-sm text-green-600">Gerando QR Code PIX...</p>
+                        </div>
+                      ) : pixPaymentData && qrCodeImage ? (
+                        <div className="space-y-4">
+                          <div className="flex flex-col items-center">
+                            <div className="bg-white p-4 rounded-lg shadow-sm">
+                              <img
+                                src={qrCodeImage}
+                                alt="QR Code PIX"
+                                className="w-48 h-48"
+                              />
+                            </div>
+                            <p className="text-sm text-green-600 mt-2 text-center">
+                              Escaneie o QR Code com seu app do banco
+                            </p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-green-800">
+                              Valor: {formatCurrency(total)}
+                            </p>
+                            <p className="text-sm text-green-600">
+                              Ou copie o código PIX abaixo:
+                            </p>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={pixPaymentData.qrCodeText}
+                                readOnly
+                                className="flex-1 p-2 text-xs border rounded bg-white"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(pixPaymentData.qrCodeText);
+                                  toast({
+                                    title: 'Código copiado!',
+                                    description: 'Cole no seu app do banco para pagar.',
+                                  });
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-green-600">
+                            O QR Code será gerado automaticamente
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
                 <CardFooter className="flex justify-between">
                   <Button variant="outline" onClick={() => setActiveTab('shipping')}>

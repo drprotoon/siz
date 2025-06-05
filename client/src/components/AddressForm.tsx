@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatPostalCode } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserAddress, UserAddress } from '@/hooks/use-user-data';
+import { getAddressByCEP, FrenetAddressResponse } from '@/lib/frenetService';
 
 interface AddressFormProps {
   initialAddress?: FrenetAddressResponse;

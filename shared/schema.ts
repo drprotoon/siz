@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, numeric, boolean, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, numeric, boolean, timestamp, varchar, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
@@ -243,6 +243,30 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// Payments schema
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull(),
+  userId: integer("user_id").notNull(),
+  paymentMethod: text("payment_method").notNull(), // 'pix', 'credit_card', 'boleto', etc.
+  paymentProvider: text("payment_provider").notNull(), // 'abacatepay', 'stripe', etc.
+  externalPaymentId: text("external_payment_id").unique(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("BRL"),
+  status: text("status").notNull().default("pending"), // 'pending', 'paid', 'failed', 'expired', 'cancelled'
+  pixQrCode: text("pix_qr_code"), // QR Code PIX (se aplicável)
+  pixQrCodeText: text("pix_qr_code_text"), // Texto do QR Code PIX (se aplicável)
+  expiresAt: timestamp("expires_at"), // Data de expiração do pagamento
+  paidAt: timestamp("paid_at"), // Data de confirmação do pagamento
+  failedAt: timestamp("failed_at"), // Data de falha do pagamento
+  failureReason: text("failure_reason"), // Motivo da falha
+  webhookData: jsonb("webhook_data"), // Dados do webhook recebido
+  customerInfo: jsonb("customer_info"), // Informações do cliente
+  metadata: jsonb("metadata"), // Dados adicionais
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 export const insertCartItemSchema = z.object({
   userId: z.number().optional(),
   sessionId: z.string().optional(),
@@ -276,6 +300,29 @@ export const insertSettingSchema = z.object({
   category: z.string().optional()
 });
 
+export const insertPaymentSchema = z.object({
+  orderId: z.number(),
+  userId: z.number(),
+  paymentMethod: z.string(),
+  paymentProvider: z.string(),
+  externalPaymentId: z.string().optional(),
+  amount: z.string(),
+  currency: z.string().optional(),
+  status: z.string().optional(),
+  pixQrCode: z.string().optional(),
+  pixQrCodeText: z.string().optional(),
+  expiresAt: z.date().optional(),
+  paidAt: z.date().optional(),
+  failedAt: z.date().optional(),
+  failureReason: z.string().optional(),
+  webhookData: z.any().optional(),
+  customerInfo: z.any().optional(),
+  metadata: z.any().optional()
+});
+
+export const selectPaymentSchema = createInsertSchema(payments);
+export const selectSettingSchema = createInsertSchema(settings);
+
 // Type definitions
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -306,6 +353,9 @@ export type InsertAddress = z.infer<typeof insertAddressSchema>;
 
 export type Setting = typeof settings.$inferSelect;
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
 // Helper type for product with category
 export type ProductWithCategory = Product & {

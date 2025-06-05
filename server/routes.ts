@@ -146,15 +146,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[DEBUG] Senha fornecida: "${password}"`);
       console.log(`[DEBUG] Hash armazenado: "${user.password?.substring(0, 20)}..."`);
 
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      console.log(`[DEBUG] Senha válida: ${isValidPassword}`);
+      // Verificar se é usuário gerenciado pelo Supabase Auth
+      if (user.password === '**MANAGED_BY_SUPABASE**') {
+        console.log(`[DEBUG] Usuário ${user.username} é gerenciado pelo Supabase Auth`);
 
-      if (!isValidPassword) {
-        return done(null, false, { message: "Incorrect username/email or password" });
+        // Importar supabase dinamicamente para evitar problemas de circular dependency
+        const { supabase } = await import('./supabase');
+
+        if (!supabase) {
+          console.error('[DEBUG] Supabase não configurado');
+          return done(null, false, { message: "Authentication service unavailable" });
+        }
+
+        try {
+          // Tentar autenticar via Supabase Auth
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: user.email,
+            password: password
+          });
+
+          if (authError || !authData.user) {
+            console.log(`[DEBUG] Falha na autenticação Supabase: ${authError?.message}`);
+            return done(null, false, { message: "Incorrect username/email or password" });
+          }
+
+          console.log(`[DEBUG] Autenticação Supabase bem-sucedida para: ${user.username}`);
+          return done(null, { id: user.id, username: user.username, email: user.email || '', role: user.role });
+        } catch (supabaseError) {
+          console.error(`[DEBUG] Erro na autenticação Supabase:`, supabaseError);
+          return done(null, false, { message: "Authentication error" });
+        }
+      } else {
+        // Usuário com senha bcrypt (sistema legado)
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        console.log(`[DEBUG] Senha bcrypt válida: ${isValidPassword}`);
+
+        if (!isValidPassword) {
+          return done(null, false, { message: "Incorrect username/email or password" });
+        }
+
+        return done(null, { id: user.id, username: user.username, email: user.email || '', role: user.role });
       }
-
-      return done(null, { id: user.id, username: user.username, email: user.email || '', role: user.role });
     } catch (error) {
+      console.error('[DEBUG] Erro no passport strategy:', error);
       return done(error);
     }
   }));
@@ -1044,6 +1078,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(payment);
     } catch (error) {
       res.status(500).json({ message: "Error processing payment" });
+    }
+  });
+
+  // AbacatePay routes
+  app.post("/api/payment/abacatepay/create", isAuthenticated, async (req, res) => {
+    try {
+      const { amount, orderId, customerInfo } = req.body;
+
+      if (!amount || typeof amount !== "number" || amount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      if (!orderId) {
+        return res.status(400).json({ message: "Order ID is required" });
+      }
+
+      // Criar pagamento no AbacatePay
+      const abacatePayment = await storage.createAbacatePayment({
+        amount,
+        orderId,
+        customerInfo,
+        userId: req.user.id
+      });
+
+      res.json(abacatePayment);
+    } catch (error) {
+      console.error("Error creating AbacatePay payment:", error);
+      res.status(500).json({ message: "Error creating payment" });
+    }
+  });
+
+  // Verificar status do pagamento AbacatePay
+  app.get("/api/payment/abacatepay/status/:paymentId", isAuthenticated, async (req, res) => {
+    try {
+      const { paymentId } = req.params;
+
+      if (!paymentId) {
+        return res.status(400).json({ message: "Payment ID is required" });
+      }
+
+      // Buscar status do pagamento
+      const status = await storage.getAbacatePaymentStatus(paymentId);
+      res.json({ status });
+    } catch (error) {
+      console.error("Error checking AbacatePay payment status:", error);
+      res.status(500).json({ message: "Error checking payment status" });
+    }
+  });
+
+  // Webhook do AbacatePay
+  app.post("/api/webhook/abacatepay", async (req, res) => {
+    try {
+      const webhookSecret = req.query.webhookSecret;
+
+      if (webhookSecret !== process.env.ABACATEPAY_WEBHOOK_SECRET) {
+        console.error("Invalid webhook secret");
+        return res.status(401).json({ error: "Invalid webhook secret" });
+      }
+
+      // Processa a notificação
+      const event = req.body;
+      console.log("Received AbacatePay webhook:", event);
+
+      // Processar diferentes tipos de eventos
+      if (event.event === "billing.paid") {
+        await storage.handleAbacatePaymentPaid(event.data);
+      } else if (event.event === "billing.failed") {
+        await storage.handleAbacatePaymentFailed(event.data);
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Error processing AbacatePay webhook:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

@@ -299,7 +299,7 @@ export const rateLimitConfig = {
   // Auth endpoints (more restrictive)
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // limit each IP to 5 requests per windowMs
+    max: process.env.NODE_ENV === 'development' ? 50 : 5, // More permissive in development
     message: 'Muitas tentativas de login, tente novamente em 15 minutos'
   },
 

@@ -21,6 +21,7 @@ import ProductForm from "@/pages/Admin/ProductForm";
 import CategoryForm from "@/pages/Admin/CategoryForm";
 import FrenetSettings from "@/pages/admin/FrenetSettings";
 import FreightTest from "@/pages/FreightTest";
+import TestPixCheckout from "@/pages/TestPixCheckout";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ShippingProvider } from "@/contexts/ShippingContext";
@@ -68,6 +69,7 @@ function Routes() {
       <Route path="/register" component={Register} />
       <Route path="/track-order" component={TrackOrder} />
       <Route path="/freight-test" component={FreightTest} />
+      <Route path="/test-pix-checkout" component={TestPixCheckout} />
 
       {/* Admin routes */}
       <Route path="/admin">

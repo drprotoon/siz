@@ -189,3 +189,12 @@ export const healthAPI = {
   check: () =>
     api.get('/health')
 };
+
+// AbacatePay API
+export const abacatePayAPI = {
+  createPayment: (data: { amount: number; orderId: number; customerInfo?: any }) =>
+    api.post('/payment/abacatepay/create', data),
+
+  checkPaymentStatus: (paymentId: string) =>
+    api.get(`/payment/abacatepay/status/${paymentId}`)
+};

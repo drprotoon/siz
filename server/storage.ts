@@ -27,6 +27,7 @@ import { db } from "./db";
 // import { convertToTyped, convertArrayToTyped } from "./types-fix"; // Removido
 import { users, categories, products, orders, orderItems, reviews, cartItems, wishlistItems, addresses } from "@shared/schema";
 import bcrypt from "bcrypt";
+import axios from "axios";
 
 // Define Setting types locally to avoid import issues
 type Setting = {
@@ -104,6 +105,17 @@ export interface IStorage {
   // Payment processing
   createPaymentIntent(amount: number): Promise<PaymentIntent>;
   processPayment(paymentId: string): Promise<PaymentIntent>;
+
+  // AbacatePay integration
+  createAbacatePayment(data: {
+    amount: number;
+    orderId: number;
+    customerInfo?: any;
+    userId: number;
+  }): Promise<any>;
+  getAbacatePaymentStatus(paymentId: string): Promise<string>;
+  handleAbacatePaymentPaid(data: any): Promise<void>;
+  handleAbacatePaymentFailed(data: any): Promise<void>;
 
   // Statistics for admin dashboard
   getStats(): Promise<{
@@ -849,6 +861,42 @@ export class MemStorage implements IStorage {
     };
   }
 
+  // AbacatePay integration (stub methods for MemStorage)
+  async createAbacatePayment(data: {
+    amount: number;
+    orderId: number;
+    customerInfo?: any;
+    userId: number;
+  }): Promise<any> {
+    // Simulate AbacatePay response for testing
+    const mockPaymentId = `pix_${Date.now()}`;
+    const mockPixCode = "00020126580014br.gov.bcb.pix013614d9d0b7-f8a4-4e8a-9b2c-1a3b4c5d6e7f8g5204000053039865802BR5925LOJA TESTE ABACATEPAY6009SAO PAULO62070503***6304A1B2";
+
+    return {
+      id: mockPaymentId,
+      qrCode: `data:image/svg+xml;base64,${btoa('<svg>Mock QR Code</svg>')}`,
+      qrCodeText: mockPixCode,
+      amount: data.amount,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes
+    };
+  }
+
+  async getAbacatePaymentStatus(paymentId: string): Promise<string> {
+    // Simulate payment status check
+    return 'pending';
+  }
+
+  async handleAbacatePaymentPaid(data: any): Promise<void> {
+    // Simulate payment confirmation
+    console.log('Mock payment confirmation:', data);
+  }
+
+  async handleAbacatePaymentFailed(data: any): Promise<void> {
+    // Simulate payment failure
+    console.log('Mock payment failure:', data);
+  }
+
   // Statistics for admin dashboard
   async getStats(): Promise<{ totalSales: number; totalOrders: number; newCustomers: number; lowStockProducts: number; }> {
     const orders = await this.getOrders();
@@ -1552,6 +1600,185 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // ABACATEPAY INTEGRATION
+  async createAbacatePayment(data: {
+    amount: number;
+    orderId: number;
+    customerInfo?: any;
+    userId: number;
+  }): Promise<any> {
+    try {
+      const abacatePayApiUrl = process.env.ABACATEPAY_API_URL || 'https://api.abacatepay.com';
+      const abacatePayApiKey = process.env.ABACATEPAY_API_KEY;
+
+      if (!abacatePayApiKey) {
+        throw new Error('AbacatePay API key not configured');
+      }
+
+      // Preparar dados para o AbacatePay
+      const paymentData = {
+        amount: data.amount * 100, // AbacatePay espera valor em centavos
+        currency: 'BRL',
+        payment_method: 'pix',
+        webhook_url: `${process.env.WEBHOOK_BASE_URL || 'https://siz-cosmetic-store-pro.vercel.app'}/api/webhook/abacatepay?webhookSecret=${process.env.ABACATEPAY_WEBHOOK_SECRET}`,
+        metadata: {
+          orderId: data.orderId,
+          userId: data.userId,
+          customerInfo: data.customerInfo
+        }
+      };
+
+      // Fazer requisição para o AbacatePay
+      const response = await axios.post(`${abacatePayApiUrl}/v1/billing`, paymentData, {
+        headers: {
+          'Authorization': `Bearer ${abacatePayApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const abacatePayment = response.data;
+
+      // Salvar informações do pagamento na tabela payments usando SQL direto
+      await db.execute(sql`
+        INSERT INTO payments (
+          order_id, user_id, payment_method, payment_provider,
+          external_payment_id, amount, currency, status,
+          pix_qr_code, pix_qr_code_text, expires_at,
+          customer_info, metadata, created_at, updated_at
+        ) VALUES (
+          ${data.orderId}, ${data.userId}, 'pix', 'abacatepay',
+          ${abacatePayment.id}, ${data.amount}, 'BRL', 'pending',
+          ${abacatePayment.pix_qr_code || null}, ${abacatePayment.pix_qr_code_text || null},
+          ${abacatePayment.expires_at ? new Date(abacatePayment.expires_at) : null},
+          ${JSON.stringify(data.customerInfo || {})},
+          ${JSON.stringify({ abacatePaymentData: abacatePayment })},
+          NOW(), NOW()
+        )
+      `);
+
+      return {
+        id: abacatePayment.id,
+        qrCode: abacatePayment.pix_qr_code,
+        qrCodeText: abacatePayment.pix_qr_code_text,
+        amount: data.amount,
+        status: 'pending',
+        expiresAt: abacatePayment.expires_at
+      };
+
+    } catch (error) {
+      console.error('Error creating AbacatePay payment:', error);
+      throw new Error('Failed to create payment with AbacatePay');
+    }
+  }
+
+  async getAbacatePaymentStatus(paymentId: string): Promise<string> {
+    try {
+      // Buscar informações do pagamento na tabela payments usando SQL direto
+      const result = await db.execute(sql`
+        SELECT status FROM payments
+        WHERE external_payment_id = ${paymentId}
+        LIMIT 1
+      `);
+
+      if (!result.rows || result.rows.length === 0) {
+        return 'not_found';
+      }
+
+      return (result.rows[0] as any).status || 'pending';
+
+    } catch (error) {
+      console.error('Error getting AbacatePay payment status:', error);
+      return 'error';
+    }
+  }
+
+  async handleAbacatePaymentPaid(data: any): Promise<void> {
+    try {
+      const pixQrCode = data.pixQrCode;
+      const paymentData = data.payment;
+
+      if (!pixQrCode || !pixQrCode.id) {
+        console.error('Invalid payment data received from AbacatePay');
+        return;
+      }
+
+      // Buscar informações do pagamento na tabela payments usando SQL direto
+      const paymentResult = await db.execute(sql`
+        SELECT id, order_id FROM payments
+        WHERE external_payment_id = ${pixQrCode.id}
+        LIMIT 1
+      `);
+
+      if (!paymentResult.rows || paymentResult.rows.length === 0) {
+        console.error('Payment not found in database:', pixQrCode.id);
+        return;
+      }
+
+      const paymentRecord = paymentResult.rows[0] as any;
+      const orderId = paymentRecord.order_id;
+
+      // Atualizar status do pedido para "paid"
+      await this.updateOrderStatus(orderId, 'paid');
+
+      // Atualizar informações do pagamento usando SQL direto
+      await db.execute(sql`
+        UPDATE payments
+        SET status = 'paid',
+            paid_at = NOW(),
+            webhook_data = ${JSON.stringify(data)},
+            updated_at = NOW()
+        WHERE id = ${paymentRecord.id}
+      `);
+
+      console.log(`Payment confirmed for order ${orderId}`);
+
+    } catch (error) {
+      console.error('Error handling AbacatePay payment confirmation:', error);
+    }
+  }
+
+  async handleAbacatePaymentFailed(data: any): Promise<void> {
+    try {
+      // Implementar lógica para pagamento falhado
+      console.log('Payment failed:', data);
+
+      const paymentId = data.payment?.id || data.id;
+
+      if (!paymentId) {
+        console.error('No payment ID found in failure data');
+        return;
+      }
+
+      // Buscar e atualizar informações do pagamento usando SQL direto
+      const paymentResult = await db.execute(sql`
+        SELECT id, order_id FROM payments
+        WHERE external_payment_id = ${paymentId}
+        LIMIT 1
+      `);
+
+      if (paymentResult.rows && paymentResult.rows.length > 0) {
+        const paymentRecord = paymentResult.rows[0] as any;
+
+        // Atualizar status do pedido para "failed"
+        await this.updateOrderStatus(paymentRecord.order_id, 'failed');
+
+        // Atualizar informações do pagamento usando SQL direto
+        await db.execute(sql`
+          UPDATE payments
+          SET status = 'failed',
+              failed_at = NOW(),
+              failure_reason = ${data.reason || 'Payment failed'},
+              webhook_data = ${JSON.stringify(data)},
+              updated_at = NOW()
+          WHERE id = ${paymentRecord.id}
+        `);
+      }
+
+    } catch (error) {
+      console.error('Error handling AbacatePay payment failure:', error);
+    }
+  }
+
   // ADMIN DASHBOARD STATS
   async getStats(): Promise<{ totalSales: number; totalOrders: number; newCustomers: number; lowStockProducts: number; }> {
     // Total de vendas
@@ -1827,14 +2054,13 @@ export class DatabaseStorage implements IStorage {
   // Settings methods
   async getSetting(key: string): Promise<string | null> {
     try {
-      const { settings } = await import("@shared/schema");
-      const result = await db
-        .select({ value: settings.value })
-        .from(settings)
-        .where(eq(settings.key, key))
-        .limit(1);
+      const result = await db.execute(sql`
+        SELECT value FROM settings
+        WHERE key = ${key}
+        LIMIT 1
+      `);
 
-      return result[0]?.value || null;
+      return (result.rows?.[0] as any)?.value || null;
     } catch (error) {
       console.error('Error getting setting:', error);
       throw error;
@@ -1843,34 +2069,29 @@ export class DatabaseStorage implements IStorage {
 
   async setSetting(key: string, value: string, description?: string, category?: string): Promise<void> {
     try {
-      const { settings } = await import("@shared/schema");
-      const existingSetting = await db
-        .select()
-        .from(settings)
-        .where(eq(settings.key, key))
-        .limit(1);
+      const existingResult = await db.execute(sql`
+        SELECT id, description, category FROM settings
+        WHERE key = ${key}
+        LIMIT 1
+      `);
 
-      if (existingSetting.length > 0) {
+      if (existingResult.rows && existingResult.rows.length > 0) {
+        const existing = existingResult.rows[0] as any;
         // Update existing setting
-        await db
-          .update(settings)
-          .set({
-            value,
-            description: description || existingSetting[0].description,
-            category: category || existingSetting[0].category,
-            updatedAt: new Date()
-          })
-          .where(eq(settings.key, key));
+        await db.execute(sql`
+          UPDATE settings
+          SET value = ${value},
+              description = ${description || existing.description},
+              category = ${category || existing.category},
+              updated_at = NOW()
+          WHERE key = ${key}
+        `);
       } else {
         // Insert new setting
-        await db
-          .insert(settings)
-          .values({
-            key,
-            value,
-            description: description || null,
-            category: category || 'general'
-          });
+        await db.execute(sql`
+          INSERT INTO settings (key, value, description, category, created_at, updated_at)
+          VALUES (${key}, ${value}, ${description || null}, ${category || 'general'}, NOW(), NOW())
+        `);
       }
     } catch (error) {
       console.error('Error setting configuration:', error);
@@ -1880,17 +2101,12 @@ export class DatabaseStorage implements IStorage {
 
   async getSettingsByCategory(category: string): Promise<{ key: string; value: string; description?: string }[]> {
     try {
-      const { settings } = await import("@shared/schema");
-      const result = await db
-        .select({
-          key: settings.key,
-          value: settings.value,
-          description: settings.description
-        })
-        .from(settings)
-        .where(eq(settings.category, category));
+      const result = await db.execute(sql`
+        SELECT key, value, description FROM settings
+        WHERE category = ${category}
+      `);
 
-      return result.map(row => ({
+      return (result.rows || []).map((row: any) => ({
         key: row.key,
         value: row.value || '',
         description: row.description || undefined
