@@ -3,7 +3,7 @@
   "name": "siz-ecommerce",
   "builds": [
     {
-      "src": "server/index.ts",
+      "src": "server/vercel.ts",
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
@@ -24,8 +24,12 @@
   ],
   "routes": [
     {
+      "src": "/api/debug",
+      "dest": "/api/debug.ts"
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "/server/index.ts"
+      "dest": "/server/vercel.ts"
     },
     {
       "src": "/(.*)",
@@ -36,7 +40,7 @@
     "NODE_ENV": "production"
   },
   "functions": {
-    "server/index.ts": {
+    "server/vercel.ts": {
       "maxDuration": 30
     }
   },

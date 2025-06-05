@@ -18,7 +18,13 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Função para servir arquivos estáticos
+// Middleware de debug para todas as requisições
+app.use((req, res, next) => {
+  console.log(`[VERCEL] ${req.method} ${req.url} - Headers:`, JSON.stringify(req.headers, null, 2));
+  next();
+});
+
+// Função para servir arquivos estáticos (versão simplificada para Vercel)
 function serveStatic(app: express.Express) {
   // Tenta diferentes caminhos possíveis para encontrar os arquivos estáticos
   const possiblePaths = [
@@ -41,18 +47,23 @@ function serveStatic(app: express.Express) {
   // Servir arquivos estáticos
   app.use(express.static(distPath));
 
-  // Adiciona middleware para lidar com rotas do cliente
-  app.use("*", (req: express.Request, res: express.Response) => {
-    // Ignora requisições de API (já tratadas pelas rotas)
+  // Middleware para SPA - APENAS para rotas que NÃO são da API
+  app.get("*", (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Se for uma rota da API, passa para o próximo middleware (que deve retornar 404)
     if (req.originalUrl && req.originalUrl.startsWith('/api')) {
       console.log(`API endpoint não encontrado: ${req.originalUrl}`);
       return res.status(404).json({
-        message: "API endpoint not found",
-        path: req.originalUrl,
-        method: req.method
+        error: "Users endpoint not found"
       });
     }
 
+    // Se for um arquivo de asset, não serve o index.html
+    const isAssetRequest = req.originalUrl.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/);
+    if (isAssetRequest) {
+      return res.status(404).send('Asset not found');
+    }
+
+    // Para rotas do cliente, serve o index.html
     const indexPath = path.resolve(distPath, "index.html");
 
     if (fs.existsSync(indexPath)) {
@@ -68,19 +79,39 @@ function serveStatic(app: express.Express) {
 // Inicializa o servidor
 async function startServer() {
   try {
-    // Registra as rotas da API
-    const server = await registerRoutes(app);
+    console.log('Starting server for Vercel...');
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Vercel flag:', process.env.VERCEL);
 
-    // Middleware de tratamento de erros
+    // Registra as rotas da API PRIMEIRO
+    console.log('Registering API routes...');
+    const server = await registerRoutes(app);
+    console.log('API routes registered successfully');
+
+    // Log das rotas registradas para debug
+    console.log('Registered routes:');
+    app._router.stack.forEach((middleware: any) => {
+      if (middleware.route) {
+        console.log(`  ${Object.keys(middleware.route.methods).join(', ').toUpperCase()} ${middleware.route.path}`);
+      } else if (middleware.name === 'router') {
+        middleware.handle.stack.forEach((handler: any) => {
+          if (handler.route) {
+            console.log(`  ${Object.keys(handler.route.methods).join(', ').toUpperCase()} ${handler.route.path}`);
+          }
+        });
+      }
+    });
+
+    // Configura o servidor para servir arquivos estáticos DEPOIS das rotas da API
+    serveStatic(app);
+
+    // Middleware de tratamento de erros (deve ser o último)
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
       console.error(`Error: ${message}`);
       res.status(status).json({ message });
     });
-
-    // Configura o servidor para servir arquivos estáticos
-    serveStatic(app);
 
     // Na Vercel, não precisamos iniciar o servidor explicitamente
     // A Vercel usa o handler do Express diretamente
@@ -95,6 +126,7 @@ async function startServer() {
       });
     }
 
+    console.log('Server initialization completed');
     return app;
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -102,10 +134,28 @@ async function startServer() {
   }
 }
 
-// Inicia o servidor se não estiver em ambiente de teste
-if (process.env.NODE_ENV !== 'test') {
-  startServer();
+// Inicializa o servidor imediatamente para o Vercel
+let serverInitialized = false;
+
+async function initializeServer() {
+  if (!serverInitialized) {
+    console.log('Initializing server for Vercel deployment...');
+    await startServer();
+    serverInitialized = true;
+    console.log('Server initialized successfully');
+  }
 }
 
-// Exporta o handler para a Vercel
+// Inicializar o servidor se estivermos no Vercel ou em produção
+if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
+  initializeServer().catch(error => {
+    console.error('Failed to initialize server:', error);
+  });
+} else if (process.env.NODE_ENV !== 'test') {
+  initializeServer().catch(error => {
+    console.error('Failed to initialize server:', error);
+  });
+}
+
+// Exporta o app Express diretamente para a Vercel
 export default app;
