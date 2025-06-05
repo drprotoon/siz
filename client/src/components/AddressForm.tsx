@@ -8,7 +8,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertTriangle, Save, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { FrenetAddressResponse, getAddressByCEP } from '@/lib/frenetService';
+// Frenet integrado ao freight-client
 import { formatPostalCode } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserAddress, UserAddress } from '@/hooks/use-user-data';

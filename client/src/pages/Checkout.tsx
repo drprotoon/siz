@@ -18,7 +18,7 @@ import { processPayment } from '@/lib/paymentService';
 import { useUserAddress } from '@/hooks/use-user-data';
 import { useShipping } from '@/contexts/ShippingContext';
 import { useCart } from '@/contexts/CartContext';
-import type { FrenetShippingService } from '@/lib/frenetService';
+// Frenet integrado ao freight-client
 
 // Não precisamos mais definir a interface FrenetShippingService aqui, pois estamos importando do frenetService.ts
 

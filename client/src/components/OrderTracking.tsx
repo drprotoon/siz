@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { trackShipment, FrenetTrackingRequest, FrenetTrackingEvent } from "@/lib/frenetService";
+// Frenet integrado ao freight-client
 import { Package, Truck, Clock, CheckCircle, AlertCircle } from "lucide-react";
 
 interface OrderTrackingProps {

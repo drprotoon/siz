@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
-import { getShippingQuote, type FrenetQuoteRequest, type FrenetShippingService } from "@/lib/frenetService";
+// Frenet integrado ao freight-client
 import { Truck, Package, Clock } from "lucide-react";
 import { useShipping } from "@/contexts/ShippingContext";
 import { useCart } from "@/contexts/CartContext";

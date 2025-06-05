@@ -18,12 +18,7 @@
     "noImplicitReturns": false,
     "exactOptionalPropertyTypes": false,
     "skipLibCheck": true,
-    "noEmit": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noImplicitThis": false,
-    "noFallthroughCasesInSwitch": false,
-    "noUncheckedIndexedAccess": false,
+    "noEmit": true,
     "paths": {
       "@shared/*": ["./shared/*"]
     }

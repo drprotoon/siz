@@ -27,7 +27,7 @@ import {
   validateQuery,
   validationSchemas,
   rateLimitConfig
-} from './middleware/validation';
+} from './middleware/validation-simple';
 import {
   requireAuth,
   requireAdmin,
@@ -130,17 +130,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   passport.use(new LocalStrategy(async (username, password, done) => {
     try {
-      const user = await storage.getUserByUsername(username);
+      // Tentar buscar por username primeiro
+      let user = await storage.getUserByUsername(username);
+
+      // Se não encontrou por username, tentar por email
       if (!user) {
-        return done(null, false, { message: "Incorrect username or password" });
+        user = await storage.getUserByEmail(username);
       }
+
+      if (!user) {
+        return done(null, false, { message: "Incorrect username/email or password" });
+      }
+
+      console.log(`[DEBUG] Verificando senha para usuário: ${user.username}`);
+      console.log(`[DEBUG] Senha fornecida: "${password}"`);
+      console.log(`[DEBUG] Hash armazenado: "${user.password?.substring(0, 20)}..."`);
 
       const isValidPassword = await bcrypt.compare(password, user.password);
+      console.log(`[DEBUG] Senha válida: ${isValidPassword}`);
+
       if (!isValidPassword) {
-        return done(null, false, { message: "Incorrect username or password" });
+        return done(null, false, { message: "Incorrect username/email or password" });
       }
 
-      return done(null, { id: user.id, username: user.username, role: user.role });
+      return done(null, { id: user.id, username: user.username, email: user.email || '', role: user.role });
     } catch (error) {
       return done(error);
     }
@@ -156,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return done(null, false);
       }
-      done(null, { id: user.id, username: user.username, role: user.role });
+      done(null, { id: user.id, username: user.username, email: user.email || '', role: user.role });
     } catch (error) {
       done(error);
     }
@@ -213,7 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionId = req.session.id;
       console.log("Session ID before login:", sessionId);
 
-      req.logIn(user, async (err) => {
+      req.logIn({ ...user, email: (user as any).email || '' } as any, async (err) => {
         if (err) {
           console.error("Login session error:", err);
           return next(err);
@@ -300,10 +313,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug route to check authentication
+  app.get("/api/debug/auth", (req, res) => {
+    res.json({
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user || null,
+      sessionId: req.session.id,
+      environment: process.env.NODE_ENV
+    });
+  });
+
   // Get all users (admin only)
   app.get("/api/users", isAdmin, async (req, res) => {
     try {
+      console.log("Fetching users - Auth check:", {
+        isAuthenticated: req.isAuthenticated(),
+        user: req.user,
+        role: req.user?.role
+      });
+
       const users = await storage.getUsers();
+      console.log(`Found ${users.length} users in database`);
+
       // Remove passwords from response
       const usersWithoutPasswords = users.map(user => {
         const { password, ...userWithoutPassword } = user;
@@ -311,6 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.json(usersWithoutPasswords);
     } catch (error) {
+      console.error("Error fetching users:", error);
       res.status(500).json({ message: "Error fetching users" });
     }
   });
@@ -786,7 +818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Optimized wishlist routes
   app.get("/api/wishlist", isAuthenticated, async (req, res) => {
     try {
-      const { wishlistService } = await import('./wishlist-service');
+      const { optimizedWishlistService: wishlistService } = await import('./services/wishlist-service-optimized');
       const wishlistItems = await wishlistService.getUserWishlist(req.user?.id || 0);
       res.json(wishlistItems);
     } catch (error) {
@@ -803,7 +835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID do produto é obrigatório" });
       }
 
-      const { wishlistService } = await import('./wishlist-service');
+      const { optimizedWishlistService: wishlistService } = await import('./services/wishlist-service-optimized');
 
       // Check if already in wishlist
       const isAlreadyInWishlist = await wishlistService.isInWishlist(req.user?.id || 0, productId);
@@ -832,7 +864,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID do produto inválido" });
       }
 
-      const { wishlistService } = await import('./wishlist-service');
+      const { optimizedWishlistService: wishlistService } = await import('./services/wishlist-service-optimized');
 
       // Check if product is in wishlist
       const isInWishlist = await wishlistService.isInWishlist(req.user?.id || 0, productId);
@@ -858,7 +890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID do produto inválido" });
       }
 
-      const { wishlistService } = await import('./wishlist-service');
+      const { optimizedWishlistService: wishlistService } = await import('./services/wishlist-service-optimized');
       const isInWishlist = await wishlistService.isInWishlist(req.user?.id || 0, productId);
       res.json({ isInWishlist });
     } catch (error) {
@@ -1028,26 +1060,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (cachedResult) {
         // Apply free shipping to cached result if eligible
         if (orderTotal && typeof orderTotal === "number") {
-          const { applyFreeShipping } = await import('./shipping');
+          const { applyFreeShipping } = await import('./services/freight-service');
           cachedResult.options = applyFreeShipping(cachedResult.options, orderTotal);
         }
         return res.json(cachedResult);
       }
 
-      // Calculate shipping options
+      // Calculate shipping options using optimized service
       console.log("Calculando opções de frete para CEP:", postalCode, "e peso:", weight);
-      const freightResponse = await storage.calculateFreight(postalCode, weight);
+      const { freightService } = await import('./services/freight-service');
+      const freightResponse = await freightService.calculateShipping(postalCode, weight, orderTotal);
       console.log("Resposta do cálculo de frete:", freightResponse);
 
-      // Cache the result before applying free shipping
+      // Cache the result (free shipping already applied by service)
       freightCache.setCached(postalCode, weight, freightResponse);
-
-      // Apply free shipping if eligible
-      if (orderTotal && typeof orderTotal === "number") {
-        const { applyFreeShipping } = await import('./shipping');
-        freightResponse.options = applyFreeShipping(freightResponse.options, orderTotal);
-        console.log("Frete grátis aplicado:", freightResponse.options);
-      }
 
       res.json(freightResponse);
     } catch (error) {
@@ -1062,11 +1088,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Frenet shipping info
   app.get("/api/freight/info", async (req, res) => {
     try {
-      // Import the FrenetShippingProvider
-      const { FrenetShippingProvider } = await import('./shipping');
+      // Import the FrenetProvider
+      const { FrenetProvider } = await import('./services/freight-service');
 
       // Create an instance of the provider
-      const frenetProvider = new FrenetShippingProvider();
+      const frenetProvider = new FrenetProvider();
 
       // Get shipping info
       const shippingInfo = await frenetProvider.getShippingInfo();
@@ -1091,11 +1117,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "CEP inválido" });
       }
 
-      // Import the FrenetShippingProvider
-      const { FrenetShippingProvider } = await import('./shipping');
+      // Import the FrenetProvider
+      const { FrenetProvider } = await import('./services/freight-service');
 
       // Create an instance of the provider
-      const frenetProvider = new FrenetShippingProvider();
+      const frenetProvider = new FrenetProvider();
 
       // Dados de teste
       const testData = {
@@ -1184,7 +1210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (cachedResult) {
         freightResponse = cachedResult;
       } else {
-        freightResponse = await storage.calculateFreight(freightRequest.postalCode, freightRequest.weight);
+        const { freightService } = await import('./services/freight-service');
+        freightResponse = await freightService.calculateShipping(freightRequest.postalCode, freightRequest.weight);
         freightCache.setCached(freightRequest.postalCode, freightRequest.weight, freightResponse);
       }
 
@@ -1584,12 +1611,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint para upload de imagens
   app.post('/api/upload', isAdminOrDev, upload.array('images', 10), async (req, res) => {
     try {
+      console.log('Upload request received:', {
+        files: req.files?.length || 0,
+        body: req.body,
+        isAuthenticated: req.isAuthenticated(),
+        user: req.user?.role
+      });
+
       if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
         return res.status(400).json({ message: 'Nenhum arquivo enviado' });
       }
 
-      // Obtém a categoria do produto
-      let categorySlug = 'outros';
+      // Obtém a categoria do produto - padrão para 'categorias' se não especificado
+      let categorySlug = 'categorias';
       if (req.body.categoryId) {
         const categoryId = parseInt(req.body.categoryId);
         const category = await storage.getCategory(categoryId);
@@ -1615,7 +1649,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const url = await uploadFile(file.path, categorySlug, subfolder);
 
         // Remove o arquivo temporário
-        fs.unlinkSync(file.path);
+        try {
+          fs.unlinkSync(file.path);
+        } catch (unlinkError) {
+          console.warn('Failed to remove temp file:', file.path);
+        }
 
         return url;
       });
@@ -1626,13 +1664,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filtra URLs nulas (falhas de upload)
       const validUrls = urls.filter(url => url !== null);
 
+      console.log(`Upload completed: ${validUrls.length} files uploaded successfully`);
+
       return res.status(200).json({
         urls: validUrls,
         message: `${validUrls.length} imagens enviadas com sucesso`
       });
     } catch (error) {
       console.error('Erro no upload de imagens:', error);
-      return res.status(500).json({ message: 'Erro ao processar upload de imagens' });
+      return res.status(500).json({
+        message: 'Erro ao processar upload de imagens',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -1906,6 +1949,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Erro ao criar pedido",
         error: error instanceof Error ? error.message : String(error)
       });
+    }
+  });
+
+  // Settings endpoints
+  app.get("/api/settings/:category", async (req, res) => {
+    try {
+      const { category } = req.params;
+      const settings = await storage.getSettingsByCategory(category);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error getting settings:", error);
+      res.status(500).json({ message: "Error getting settings" });
+    }
+  });
+
+  app.get("/api/settings/:category/:key", async (req, res) => {
+    try {
+      const { key } = req.params;
+      const value = await storage.getSetting(key);
+      res.json({ key, value });
+    } catch (error) {
+      console.error("Error getting setting:", error);
+      res.status(500).json({ message: "Error getting setting" });
+    }
+  });
+
+  app.put("/api/settings/:category/:key", isAdmin, async (req, res) => {
+    try {
+      const { key, category } = req.params;
+      const { value, description } = req.body;
+
+      await storage.setSetting(key, value, description, category);
+      res.json({ message: "Setting updated successfully" });
+    } catch (error) {
+      console.error("Error updating setting:", error);
+      res.status(500).json({ message: "Error updating setting" });
+    }
+  });
+
+  app.post("/api/settings", isAdmin, async (req, res) => {
+    try {
+      const { key, value, description, category } = req.body;
+
+      await storage.setSetting(key, value, description, category);
+      res.json({ message: "Setting created successfully" });
+    } catch (error) {
+      console.error("Error creating setting:", error);
+      res.status(500).json({ message: "Error creating setting" });
     }
   });
 

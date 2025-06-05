@@ -11,7 +11,7 @@ import { formatPostalCode, isValidPostalCode, formatCurrency } from '@/lib/utils
 import PostalCodeLookup from '@/components/PostalCodeLookup';
 import AddressForm from '@/components/AddressForm';
 import AuthForm from '@/components/AuthForm';
-import { FrenetAddressResponse, FrenetShippingService } from '@/lib/frenetService';
+// Frenet integrado ao freight-client
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 

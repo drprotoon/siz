@@ -24,8 +24,27 @@ import {
 import { ensureImagesArray } from "./utils";
 import { eq, and, desc, sql, ne } from "drizzle-orm";
 import { db } from "./db";
+// import { convertToTyped, convertArrayToTyped } from "./types-fix"; // Removido
 import { users, categories, products, orders, orderItems, reviews, cartItems, wishlistItems, addresses } from "@shared/schema";
 import bcrypt from "bcrypt";
+
+// Define Setting types locally to avoid import issues
+type Setting = {
+  id: number;
+  key: string;
+  value: string | null;
+  description: string | null;
+  category: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+type InsertSetting = {
+  key: string;
+  value?: string;
+  description?: string;
+  category?: string;
+};
 
 export interface IStorage {
   // Users
@@ -93,6 +112,11 @@ export interface IStorage {
     newCustomers: number,
     lowStockProducts: number
   }>;
+
+  // Settings
+  getSetting(key: string): Promise<string | null>;
+  setSetting(key: string, value: string, description?: string, category?: string): Promise<void>;
+  getSettingsByCategory(category: string): Promise<{ key: string; value: string; description?: string }[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -103,6 +127,7 @@ export class MemStorage implements IStorage {
   private orderItems: Map<number, OrderItem[]>;
   private reviews: Map<number, Review>;
   private cartItems: Map<number, CartItem>;
+  private settings: Map<string, Setting>;
 
   private userCurrentId: number;
   private categoryCurrentId: number;
@@ -111,6 +136,7 @@ export class MemStorage implements IStorage {
   private orderItemCurrentId: number;
   private reviewCurrentId: number;
   private cartItemCurrentId: number;
+  private settingCurrentId: number;
 
   constructor() {
     this.users = new Map();
@@ -120,6 +146,7 @@ export class MemStorage implements IStorage {
     this.orderItems = new Map();
     this.reviews = new Map();
     this.cartItems = new Map();
+    this.settings = new Map();
 
     this.userCurrentId = 1;
     this.categoryCurrentId = 1;
@@ -128,10 +155,60 @@ export class MemStorage implements IStorage {
     this.orderItemCurrentId = 1;
     this.reviewCurrentId = 1;
     this.cartItemCurrentId = 1;
+    this.settingCurrentId = 1;
 
     // Initialize with some data
     this.initializeData().catch(err => {
       console.error("Error initializing data:", err);
+    });
+
+    // Initialize default settings
+    this.initializeSettings();
+  }
+
+  private initializeSettings(): void {
+    // Default Frenet settings
+    const defaultSettings: Setting[] = [
+      {
+        id: this.settingCurrentId++,
+        key: 'frenet_api_token',
+        value: '13B9E436RD32DR455ERAC99R93357F8D6640',
+        description: 'Token da API da Frenet',
+        category: 'frenet',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
+        key: 'frenet_seller_cep',
+        value: '74591990',
+        description: 'CEP de origem para cálculo de frete',
+        category: 'frenet',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
+        key: 'frenet_enabled',
+        value: 'true',
+        description: 'Habilitar integração com Frenet',
+        category: 'frenet',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
+        key: 'free_shipping_threshold',
+        value: '150',
+        description: 'Valor mínimo para frete grátis (em reais)',
+        category: 'shipping',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    defaultSettings.forEach(setting => {
+      this.settings.set(setting.key, setting);
     });
   }
 
@@ -343,7 +420,7 @@ export class MemStorage implements IStorage {
       order: insertCategory.order || null
     };
     this.categories.set(id, category);
-    return category;
+    return category as any;
   }
 
   async updateCategory(id: number, categoryData: Partial<InsertCategory>): Promise<Category | undefined> {
@@ -352,7 +429,7 @@ export class MemStorage implements IStorage {
 
     const updatedCategory = { ...category, ...categoryData };
     this.categories.set(id, updatedCategory);
-    return updatedCategory;
+    return updatedCategory as any;
   }
 
   async deleteCategory(id: number): Promise<boolean> {
@@ -452,7 +529,7 @@ export class MemStorage implements IStorage {
       reviewCount: 0
     };
     this.products.set(id, product);
-    return product;
+    return product as any;
   }
 
   async updateProduct(id: number, productData: Partial<InsertProduct>): Promise<Product | undefined> {
@@ -461,7 +538,7 @@ export class MemStorage implements IStorage {
 
     const updatedProduct = { ...product, ...productData };
     this.products.set(id, updatedProduct);
-    return updatedProduct;
+    return updatedProduct as any;
   }
 
   async deleteProduct(id: number): Promise<boolean> {
@@ -477,7 +554,7 @@ export class MemStorage implements IStorage {
 
     const updatedProduct = { ...product, quantity: newQuantity };
     this.products.set(id, updatedProduct);
-    return updatedProduct;
+    return updatedProduct as any;
   }
 
   // Orders
@@ -575,7 +652,7 @@ export class MemStorage implements IStorage {
     this.orders.set(id, order);
 
     // Add order items
-    const orderItems: OrderItem[] = items.map(item => {
+    const orderItems: any[] = items.map(item => {
       const itemId = this.orderItemCurrentId++;
       return { ...item, id: itemId, orderId: id };
     });
@@ -586,7 +663,7 @@ export class MemStorage implements IStorage {
       await this.updateProductStock(item.productId, -item.quantity);
     }
 
-    return order;
+    return order as any;
   }
 
   async updateOrderStatus(id: number, status: string): Promise<Order | undefined> {
@@ -595,7 +672,7 @@ export class MemStorage implements IStorage {
 
     const updatedOrder = { ...order, status };
     this.orders.set(id, updatedOrder);
-    return updatedOrder;
+    return updatedOrder as any;
   }
 
   // Reviews
@@ -805,6 +882,56 @@ export class MemStorage implements IStorage {
       lowStockProducts
     };
   }
+
+  // Settings methods
+  async getSetting(key: string): Promise<string | null> {
+    const setting = this.settings.get(key);
+    return setting?.value || null;
+  }
+
+  async setSetting(key: string, value: string, description?: string, category?: string): Promise<void> {
+    const existingSetting = this.settings.get(key);
+
+    if (existingSetting) {
+      // Update existing setting
+      const updatedSetting: Setting = {
+        ...existingSetting,
+        value,
+        description: description || existingSetting.description,
+        category: category || existingSetting.category,
+        updatedAt: new Date()
+      };
+      this.settings.set(key, updatedSetting);
+    } else {
+      // Create new setting
+      const newSetting: Setting = {
+        id: this.settingCurrentId++,
+        key,
+        value,
+        description: description || null,
+        category: category || 'general',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      this.settings.set(key, newSetting);
+    }
+  }
+
+  async getSettingsByCategory(category: string): Promise<{ key: string; value: string; description?: string }[]> {
+    const results: { key: string; value: string; description?: string }[] = [];
+
+    for (const setting of this.settings.values()) {
+      if (setting.category === category) {
+        results.push({
+          key: setting.key,
+          value: setting.value || '',
+          description: setting.description || undefined
+        });
+      }
+    }
+
+    return results;
+  }
 }
 
 // Export the MemStorage for testing or fallback if needed
@@ -813,26 +940,26 @@ export const memStorage = new MemStorage();
 export class DatabaseStorage implements IStorage {
   // USERS
   async getUsers(): Promise<User[]> {
-    return await db.select().from(users);
+    return await db.select().from(users) as User[];
   }
 
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    return user as User;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+    return user as User;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    return user as User;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const [user] = await db.insert(users).values(insertUser).returning() as User[];
     return user;
   }
 
@@ -842,27 +969,28 @@ export class DatabaseStorage implements IStorage {
       .set(userData)
       .where(eq(users.id, id))
       .returning();
-    return updatedUser;
+    return updatedUser as User;
   }
 
   // CATEGORIES
   async getCategories(): Promise<Category[]> {
-    return db.select().from(categories);
+    const result = await db.select().from(categories);
+    return result as Category[];
   }
 
   async getCategory(id: number): Promise<Category | undefined> {
     const [category] = await db.select().from(categories).where(eq(categories.id, id));
-    return category;
+    return category as any;
   }
 
   async getCategoryBySlug(slug: string): Promise<Category | undefined> {
     const [category] = await db.select().from(categories).where(eq(categories.slug, slug));
-    return category;
+    return category as any;
   }
 
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
-    const [category] = await db.insert(categories).values(insertCategory).returning();
-    return category;
+    const [category] = await db.insert(categories).values(insertCategory).returning() as any[];
+    return category as any;
   }
 
   async updateCategory(id: number, categoryData: Partial<InsertCategory>): Promise<Category | undefined> {
@@ -871,7 +999,7 @@ export class DatabaseStorage implements IStorage {
       .set(categoryData)
       .where(eq(categories.id, id))
       .returning();
-    return updatedCategory;
+    return updatedCategory as any;
   }
 
   async deleteCategory(id: number): Promise<boolean> {
@@ -903,7 +1031,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    return query;
+    return query as any;
   }
 
   async getProductsWithCategory(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<ProductWithCategory[]> {
@@ -925,12 +1053,12 @@ export class DatabaseStorage implements IStorage {
 
   async getProduct(id: number): Promise<Product | undefined> {
     const [product] = await db.select().from(products).where(eq(products.id, id));
-    return product;
+    return product as any;
   }
 
   async getProductBySlug(slug: string): Promise<Product | undefined> {
     const [product] = await db.select().from(products).where(eq(products.slug, slug));
-    return product;
+    return product as any;
   }
 
   async getProductWithCategory(id: number): Promise<ProductWithCategory | undefined> {
@@ -960,8 +1088,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    const [product] = await db.insert(products).values(insertProduct).returning();
-    return product;
+    const [product] = await db.insert(products).values(insertProduct).returning() as any[];
+    return product as any;
   }
 
   async updateProduct(id: number, productData: Partial<InsertProduct>): Promise<Product | undefined> {
@@ -970,7 +1098,7 @@ export class DatabaseStorage implements IStorage {
       .set(productData)
       .where(eq(products.id, id))
       .returning();
-    return updatedProduct;
+    return updatedProduct as any;
   }
 
   async deleteProduct(id: number): Promise<boolean> {
@@ -990,7 +1118,7 @@ export class DatabaseStorage implements IStorage {
 
   // ORDERS
   async getOrders(): Promise<Order[]> {
-    return db.select().from(orders).orderBy(desc(orders.createdAt));
+    return db.select().from(orders).orderBy(desc(orders.createdAt)) as any;
   }
 
   async getOrdersWithItems(): Promise<OrderWithItems[]> {
@@ -1020,7 +1148,7 @@ export class DatabaseStorage implements IStorage {
 
   async getOrder(id: number): Promise<Order | undefined> {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
-    return order;
+    return order as any;
   }
 
   async getOrderWithItems(id: number): Promise<OrderWithItems | undefined> {
@@ -1046,7 +1174,7 @@ export class DatabaseStorage implements IStorage {
 
   async getUserOrders(userId: string | number): Promise<Order[]> {
     const userIdNum = typeof userId === 'string' ? parseInt(userId) : userId;
-    return db.select().from(orders).where(eq(orders.userId, userIdNum)).orderBy(desc(orders.createdAt));
+    return db.select().from(orders).where(eq(orders.userId, userIdNum)).orderBy(desc(orders.createdAt)) as any;
   }
 
   async getOrderById(orderId: string | number): Promise<any> {
@@ -1121,7 +1249,7 @@ export class DatabaseStorage implements IStorage {
   async createOrder(orderData: any): Promise<any> {
     try {
       // Inserir o pedido
-      const [newOrder] = await db
+      const [newOrder] = (await db
         .insert(orders)
         .values({
           userId: typeof orderData.userId === 'string' ? parseInt(orderData.userId) : orderData.userId,
@@ -1137,7 +1265,7 @@ export class DatabaseStorage implements IStorage {
           total: orderData.total,
           paymentId: null
         })
-        .returning();
+        .returning()) as any[];
 
       // Inserir os itens do pedido
       const orderItemsData = orderData.items.map((item: any) => ({
@@ -1176,16 +1304,16 @@ export class DatabaseStorage implements IStorage {
       .set({ status })
       .where(eq(orders.id, id))
       .returning();
-    return updatedOrder;
+    return updatedOrder as any;
   }
 
   // REVIEWS
   async getProductReviews(productId: number): Promise<Review[]> {
-    return db.select().from(reviews).where(eq(reviews.productId, productId)).orderBy(desc(reviews.createdAt));
+    return db.select().from(reviews).where(eq(reviews.productId, productId)).orderBy(desc(reviews.createdAt)) as any;
   }
 
   async createReview(insertReview: InsertReview): Promise<Review> {
-    const [review] = await db.insert(reviews).values(insertReview).returning();
+    const [review] = (await db.insert(reviews).values(insertReview).returning()) as any[];
 
     // Update product rating
     const productReviews = await this.getProductReviews(insertReview.productId);
@@ -1231,9 +1359,9 @@ export class DatabaseStorage implements IStorage {
   // CART
   async getUserCart(userId?: number, sessionId?: string): Promise<CartItem[]> {
     if (userId) {
-      return db.select().from(cartItems).where(eq(cartItems.userId, userId));
+      return db.select().from(cartItems).where(eq(cartItems.userId, userId)) as any;
     } else if (sessionId) {
-      return db.select().from(cartItems).where(eq(cartItems.sessionId, sessionId));
+      return db.select().from(cartItems).where(eq(cartItems.sessionId, sessionId)) as any;
     } else {
       return [];
     }
@@ -1241,7 +1369,7 @@ export class DatabaseStorage implements IStorage {
 
   // WISHLIST
   async getUserWishlist(userId: number): Promise<WishlistItem[]> {
-    return db.select().from(wishlistItems).where(eq(wishlistItems.userId, userId));
+    return db.select().from(wishlistItems).where(eq(wishlistItems.userId, userId)) as any;
   }
 
   async getUserWishlistWithProducts(userId: number): Promise<(WishlistItem & { product: Product })[]> {
@@ -1278,10 +1406,10 @@ export class DatabaseStorage implements IStorage {
 
     if (existingItem) {
       // Item already exists, return it
-      return existingItem;
+      return existingItem as any;
     } else {
       // Add new item
-      const [wishlistItem] = await db.insert(wishlistItems).values(insertWishlistItem).returning();
+      const [wishlistItem] = (await db.insert(wishlistItems).values(insertWishlistItem).returning()) as any[];
       return wishlistItem;
     }
   }
@@ -1330,7 +1458,7 @@ export class DatabaseStorage implements IStorage {
     let existingItem: CartItem | undefined;
 
     if (insertCartItem.userId) {
-      [existingItem] = await db
+      [existingItem] = (await db
         .select()
         .from(cartItems)
         .where(
@@ -1338,9 +1466,9 @@ export class DatabaseStorage implements IStorage {
             eq(cartItems.userId, insertCartItem.userId),
             eq(cartItems.productId, insertCartItem.productId)
           )
-        );
+        )) as any;
     } else if (insertCartItem.sessionId) {
-      [existingItem] = await db
+      [existingItem] = (await db
         .select()
         .from(cartItems)
         .where(
@@ -1348,7 +1476,7 @@ export class DatabaseStorage implements IStorage {
             eq(cartItems.sessionId, insertCartItem.sessionId),
             eq(cartItems.productId, insertCartItem.productId)
           )
-        );
+        )) as any;
     }
 
     if (existingItem) {
@@ -1358,11 +1486,11 @@ export class DatabaseStorage implements IStorage {
         .set({ quantity: existingItem.quantity + insertCartItem.quantity })
         .where(eq(cartItems.id, existingItem.id))
         .returning();
-      return updatedItem;
+      return updatedItem as any;
     } else {
       // Add new item
-      const [cartItem] = await db.insert(cartItems).values(insertCartItem).returning();
-      return cartItem;
+      const [cartItem] = await db.insert(cartItems).values(insertCartItem).returning() as any[];
+      return cartItem as any;
     }
   }
 
@@ -1377,7 +1505,7 @@ export class DatabaseStorage implements IStorage {
       .set({ quantity })
       .where(eq(cartItems.id, id))
       .returning();
-    return updatedItem;
+    return updatedItem as any;
   }
 
   async removeFromCart(id: number): Promise<boolean> {
@@ -1692,6 +1820,83 @@ export class DatabaseStorage implements IStorage {
       return true;
     } catch (error) {
       console.error('Error updating user password:', error);
+      throw error;
+    }
+  }
+
+  // Settings methods
+  async getSetting(key: string): Promise<string | null> {
+    try {
+      const { settings } = await import("@shared/schema");
+      const result = await db
+        .select({ value: settings.value })
+        .from(settings)
+        .where(eq(settings.key, key))
+        .limit(1);
+
+      return result[0]?.value || null;
+    } catch (error) {
+      console.error('Error getting setting:', error);
+      throw error;
+    }
+  }
+
+  async setSetting(key: string, value: string, description?: string, category?: string): Promise<void> {
+    try {
+      const { settings } = await import("@shared/schema");
+      const existingSetting = await db
+        .select()
+        .from(settings)
+        .where(eq(settings.key, key))
+        .limit(1);
+
+      if (existingSetting.length > 0) {
+        // Update existing setting
+        await db
+          .update(settings)
+          .set({
+            value,
+            description: description || existingSetting[0].description,
+            category: category || existingSetting[0].category,
+            updatedAt: new Date()
+          })
+          .where(eq(settings.key, key));
+      } else {
+        // Insert new setting
+        await db
+          .insert(settings)
+          .values({
+            key,
+            value,
+            description: description || null,
+            category: category || 'general'
+          });
+      }
+    } catch (error) {
+      console.error('Error setting configuration:', error);
+      throw error;
+    }
+  }
+
+  async getSettingsByCategory(category: string): Promise<{ key: string; value: string; description?: string }[]> {
+    try {
+      const { settings } = await import("@shared/schema");
+      const result = await db
+        .select({
+          key: settings.key,
+          value: settings.value,
+          description: settings.description
+        })
+        .from(settings)
+        .where(eq(settings.category, category));
+
+      return result.map(row => ({
+        key: row.key,
+        value: row.value || '',
+        description: row.description || undefined
+      }));
+    } catch (error) {
+      console.error('Error getting settings by category:', error);
       throw error;
     }
   }

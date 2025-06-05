@@ -17,32 +17,51 @@ const getArrayType = () => {
   }
 };
 
-// User schema
+// User schema - Corresponde exatamente à estrutura do Supabase
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
-  name: text("name"),
   fullName: text("full_name"),
   address: text("address"),
-  addressNumber: text("address_number"),
-  addressComplement: text("address_complement"),
-  district: text("district"),
   city: text("city"),
   state: text("state"),
   postalCode: text("postal_code"),
   country: text("country"),
   phone: text("phone"),
-  cpf: text("cpf"),
-  birthdate: timestamp("birthdate"),
   role: text("role").notNull().default("customer"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
+  name: text("name"),
+  cpf: text("cpf"),
+  birthdate: timestamp("birthdate"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  addressComplement: text("address_complement"),
+  addressNumber: text("address_number"),
+  district: text("district"),
+  authId: text("auth_id")
 });
 
-export const insertUserSchema = createInsertSchema(users)
-  .omit({ id: true, createdAt: true });
+export const insertUserSchema = z.object({
+  username: z.string(),
+  password: z.string(),
+  email: z.string().email(),
+  role: z.string().default("customer"),
+  name: z.string().optional(),
+  fullName: z.string().optional(),
+  phone: z.string().optional(),
+  cpf: z.string().optional(),
+  birthdate: z.date().optional(),
+  address: z.string().optional(),
+  addressNumber: z.string().optional(),
+  addressComplement: z.string().optional(),
+  district: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  postalCode: z.string().optional(),
+  country: z.string().optional(),
+  updatedAt: z.date().optional()
+});
 
 // Category schema
 export const categories = pgTable("categories", {
@@ -55,45 +74,59 @@ export const categories = pgTable("categories", {
   order: integer("order").default(sql`0`)
 });
 
-export const insertCategorySchema = createInsertSchema(categories)
-  .omit({ id: true });
+export const insertCategorySchema = z.object({
+  name: z.string(),
+  slug: z.string(),
+  description: z.string().optional(),
+  imageUrl: z.string().optional(),
+  parentId: z.number().optional(),
+  order: z.number().optional()
+});
 
-// Product schema
+// Product schema - Simplificado para usar apenas colunas que funcionam
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
-  compareAtPrice: numeric("compare_at_price", { precision: 10, scale: 2 }),
+  compareatprice: numeric("compareatprice", { precision: 10, scale: 2 }),
   sku: text("sku").notNull().unique(),
   weight: numeric("weight", { precision: 6, scale: 2 }).notNull(),
   quantity: integer("quantity").notNull().default(sql`0`),
   categoryId: integer("category_id").notNull(),
   images: getArrayType(), // Usa a função auxiliar para determinar o tipo correto
   ingredients: text("ingredients"),
-  howToUse: text("how_to_use"),
+  howtouse: text("howtouse"), // Usar a coluna que existe
   visible: boolean("visible").notNull().default(true),
   featured: boolean("featured").default(false),
   newArrival: boolean("new_arrival").default(false),
   bestSeller: boolean("best_seller").default(false),
   rating: numeric("rating", { precision: 3, scale: 1 }).default(sql`0`),
-  reviewCount: integer("review_count").default(sql`0`),
-  createdAt: timestamp("created_at").defaultNow()
+  reviewCount: integer("review_count").default(sql`0`), // Usar a coluna que existe
+  createdAt: timestamp("createdat").defaultNow()
 });
 
-export const insertProductSchema = createInsertSchema(products)
-  .omit({ id: true, createdAt: true })
-  .extend({
-    // Garantir que os campos opcionais sejam tratados corretamente
-    description: z.string().nullable().optional(),
-    compareAtPrice: z.string().nullable().optional(),
-    images: z.union([z.string(), z.array(z.string())]).nullable().optional(),
-    ingredients: z.string().nullable().optional(),
-    howToUse: z.string().nullable().optional(),
-    rating: z.string().nullable().optional(),
-    reviewCount: z.number().nullable().optional()
-  });
+export const insertProductSchema = z.object({
+  name: z.string(),
+  slug: z.string(),
+  description: z.string().nullable().optional(),
+  price: z.string(),
+  compareatprice: z.string().nullable().optional(),
+  sku: z.string(),
+  weight: z.string(),
+  quantity: z.number().optional(),
+  categoryId: z.number(),
+  images: z.union([z.string(), z.array(z.string())]).nullable().optional(),
+  ingredients: z.string().nullable().optional(),
+  howtouse: z.string().nullable().optional(),
+  visible: z.boolean().optional(),
+  featured: z.boolean().optional(),
+  newArrival: z.boolean().optional(),
+  bestSeller: z.boolean().optional(),
+  rating: z.string().nullable().optional(),
+  reviewCount: z.number().nullable().optional()
+});
 
 // Order schema
 export const orders = pgTable("orders", {
@@ -113,8 +146,20 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
-export const insertOrderSchema = createInsertSchema(orders)
-  .omit({ id: true, createdAt: true });
+export const insertOrderSchema = z.object({
+  userId: z.number(),
+  status: z.string().optional(),
+  total: z.string(),
+  shippingAddress: z.string(),
+  shippingCity: z.string(),
+  shippingState: z.string(),
+  shippingPostalCode: z.string(),
+  shippingCountry: z.string(),
+  shippingMethod: z.string().optional(),
+  shippingCost: z.string().optional(),
+  paymentMethod: z.string().optional(),
+  paymentId: z.string().optional()
+});
 
 // Order items schema
 export const orderItems = pgTable("order_items", {
@@ -126,8 +171,13 @@ export const orderItems = pgTable("order_items", {
   name: text("name").notNull()
 });
 
-export const insertOrderItemSchema = createInsertSchema(orderItems)
-  .omit({ id: true });
+export const insertOrderItemSchema = z.object({
+  orderId: z.number(),
+  productId: z.number(),
+  quantity: z.number(),
+  price: z.string(),
+  name: z.string()
+});
 
 // Review schema
 export const reviews = pgTable("reviews", {
@@ -140,8 +190,13 @@ export const reviews = pgTable("reviews", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
-export const insertReviewSchema = createInsertSchema(reviews)
-  .omit({ id: true, createdAt: true });
+export const insertReviewSchema = z.object({
+  productId: z.number(),
+  userId: z.number(),
+  rating: z.number(),
+  title: z.string().optional(),
+  comment: z.string().optional()
+});
 
 // Cart schema
 export const cartItems = pgTable("cart_items", {
@@ -177,17 +232,49 @@ export const addresses = pgTable("addresses", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
-export const insertCartItemSchema = createInsertSchema(cartItems)
-  .omit({ id: true, createdAt: true })
-  .refine(data => data.userId !== undefined || data.sessionId !== undefined, {
-    message: "Either userId or sessionId must be provided"
-  });
+// Settings schema
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value"),
+  description: text("description"),
+  category: text("category").default("general"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
 
-export const insertWishlistItemSchema = createInsertSchema(wishlistItems)
-  .omit({ id: true, createdAt: true });
+export const insertCartItemSchema = z.object({
+  userId: z.number().optional(),
+  sessionId: z.string().optional(),
+  productId: z.number(),
+  quantity: z.number()
+}).refine((data) => data.userId !== undefined || data.sessionId !== undefined, {
+  message: "Either userId or sessionId must be provided"
+});
 
-export const insertAddressSchema = createInsertSchema(addresses)
-  .omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWishlistItemSchema = z.object({
+  userId: z.number(),
+  productId: z.number()
+});
+
+export const insertAddressSchema = z.object({
+  userId: z.number(),
+  postalCode: z.string(),
+  street: z.string(),
+  number: z.string().optional(),
+  complement: z.string().optional(),
+  district: z.string(),
+  city: z.string(),
+  state: z.string(),
+  country: z.string().optional()
+});
+
+export const insertSettingSchema = z.object({
+  key: z.string(),
+  value: z.string().optional(),
+  description: z.string().optional(),
+  category: z.string().optional()
+});
 
 // Type definitions
 export type User = typeof users.$inferSelect;
@@ -216,6 +303,9 @@ export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
 
 export type Address = typeof addresses.$inferSelect;
 export type InsertAddress = z.infer<typeof insertAddressSchema>;
+
+export type Setting = typeof settings.$inferSelect;
+export type InsertSetting = z.infer<typeof insertSettingSchema>;
 
 // Helper type for product with category
 export type ProductWithCategory = Product & {

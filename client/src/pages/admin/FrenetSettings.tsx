@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layouts/AdminLayout';
 import FrenetInfoPanel from '@/components/FrenetInfoPanel';
 import FrenetApiTester from '@/components/FrenetApiTester';
@@ -11,33 +11,69 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { Truck, Package, Settings, RefreshCw, TestTube } from 'lucide-react';
+import { settingsAPI } from '@/api';
 
 export default function FrenetSettings() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [sellerCEP, setSellerCEP] = useState('74591990');
   const [apiToken, setApiToken] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveSettings = async () => {
-    setIsSaving(true);
+  // Buscar configurações do Frenet
+  const { data: frenetSettings, isLoading } = useQuery({
+    queryKey: ['settings', 'frenet'],
+    queryFn: () => settingsAPI.getByCategory('frenet'),
+    select: (response) => response.data
+  });
 
-    try {
-      // Aqui você implementaria a lógica para salvar as configurações
-      // Por exemplo, uma chamada para uma API que salva as configurações no banco de dados
-
+  // Mutation para salvar configurações
+  const saveSettingsMutation = useMutation({
+    mutationFn: async (settings: { sellerCEP: string; apiToken: string }) => {
+      const promises = [
+        settingsAPI.updateSetting('frenet', 'frenet_seller_cep', settings.sellerCEP, 'CEP de origem para cálculo de frete'),
+        settingsAPI.updateSetting('frenet', 'frenet_api_token', settings.apiToken, 'Token da API da Frenet')
+      ];
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'frenet'] });
       toast({
         title: 'Configurações salvas',
         description: 'As configurações da Frenet foram salvas com sucesso.',
       });
-    } catch (error) {
+    },
+    onError: (error) => {
+      console.error('Erro ao salvar configurações:', error);
       toast({
         title: 'Erro ao salvar',
         description: 'Não foi possível salvar as configurações. Tente novamente.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSaving(false);
     }
+  });
+
+  // Carregar configurações quando disponíveis
+  useEffect(() => {
+    if (frenetSettings) {
+      const sellerCepSetting = frenetSettings.find((s: any) => s.key === 'frenet_seller_cep');
+      const apiTokenSetting = frenetSettings.find((s: any) => s.key === 'frenet_api_token');
+
+      if (sellerCepSetting) setSellerCEP(sellerCepSetting.value || '74591990');
+      if (apiTokenSetting) setApiToken(apiTokenSetting.value || '');
+    }
+  }, [frenetSettings]);
+
+  const handleSaveSettings = async () => {
+    if (!sellerCEP.trim() || !apiToken.trim()) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Por favor, preencha o CEP de origem e o token da API.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    saveSettingsMutation.mutate({ sellerCEP, apiToken });
   };
 
   return (
@@ -133,9 +169,9 @@ export default function FrenetSettings() {
 
                   <Button
                     onClick={handleSaveSettings}
-                    disabled={isSaving}
+                    disabled={saveSettingsMutation.isPending || isLoading}
                   >
-                    {isSaving ? (
+                    {saveSettingsMutation.isPending ? (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                         Salvando...

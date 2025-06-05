@@ -40,13 +40,11 @@ export const validationSchemas = {
   // User registration
   register: z.object({
     username: z.string()
-      .transform(sanitizeInput)
       .min(3, 'Username deve ter pelo menos 3 caracteres')
       .max(50, 'Username muito longo')
       .regex(/^[a-zA-Z0-9_]+$/, 'Username deve conter apenas letras, números e underscore'),
 
     email: z.string()
-      .transform(sanitizeInput)
       .email('Email inválido')
       .max(255, 'Email muito longo'),
 
@@ -55,18 +53,15 @@ export const validationSchemas = {
       .max(100, 'Senha muito longa'),
 
     name: z.string()
-      .transform(sanitizeInput)
       .min(2, 'Nome deve ter pelo menos 2 caracteres')
       .max(100, 'Nome muito longo')
       .optional(),
 
     phone: z.string()
-      .transform(sanitizeInput)
       .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Telefone deve estar no formato (XX) XXXXX-XXXX')
       .optional(),
 
     cpf: z.string()
-      .transform(sanitizeInput)
       .regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, 'CPF deve estar no formato XXX.XXX.XXX-XX')
       .optional()
   }),
@@ -74,8 +69,7 @@ export const validationSchemas = {
   // User login
   login: z.object({
     username: z.string()
-      .transform(sanitizeInput)
-      .min(1, 'Username é obrigatório'),
+      .min(1, 'Username ou email é obrigatório'),
 
     password: z.string()
       .min(1, 'Senha é obrigatória')
@@ -84,64 +78,53 @@ export const validationSchemas = {
   // Checkout form
   checkout: z.object({
     postalCode: z.string()
-      .transform(sanitizeInput)
       .regex(/^\d{8}$/, 'CEP deve ter 8 dígitos')
-      .transform(cep => cep.replace(/\D/g, '')),
+      .transform((cep: string) => cep.replace(/\D/g, '')),
 
     paymentMethod: z.enum(['credit', 'debit', 'pix'], {
       errorMap: () => ({ message: 'Método de pagamento inválido' })
     }),
 
     shippingOption: z.string()
-      .transform(sanitizeInput)
       .min(1, 'Opção de frete é obrigatória'),
 
     recipientName: z.string()
-      .transform(sanitizeInput)
       .min(2, 'Nome do destinatário deve ter pelo menos 2 caracteres')
       .max(100, 'Nome muito longo'),
 
     recipientAddress: z.string()
-      .transform(sanitizeInput)
       .min(5, 'Endereço deve ter pelo menos 5 caracteres')
       .max(200, 'Endereço muito longo'),
 
     recipientNumber: z.string()
-      .transform(sanitizeInput)
       .max(20, 'Número muito longo'),
 
     recipientComplement: z.string()
-      .transform(sanitizeInput)
       .max(100, 'Complemento muito longo')
       .optional(),
 
     recipientDistrict: z.string()
-      .transform(sanitizeInput)
       .min(2, 'Bairro deve ter pelo menos 2 caracteres')
       .max(100, 'Bairro muito longo'),
 
     recipientCity: z.string()
-      .transform(sanitizeInput)
       .min(2, 'Cidade deve ter pelo menos 2 caracteres')
       .max(100, 'Cidade muito longa'),
 
     recipientState: z.string()
-      .transform(sanitizeInput)
       .length(2, 'Estado deve ter 2 caracteres')
-      .toUpperCase()
+      .transform((s: string) => s.toUpperCase())
   }),
 
   // Product search with enhanced security
   search: z.object({
     q: z.string()
-      .transform(sanitizeInput)
       .min(1, 'Termo de busca é obrigatório')
       .max(100, 'Termo de busca muito longo')
       .regex(/^[a-zA-Z0-9\s\-_áéíóúàèìòùâêîôûãõç]+$/, 'Termo de busca contém caracteres inválidos')
       .optional(),
 
     category: z.string()
-      .transform(sanitizeInput)
       .max(50, 'Categoria inválida')
       .regex(/^[a-zA-Z0-9\s\-_]+$/, 'Categoria contém caracteres inválidos')
       .optional(),
@@ -178,9 +161,8 @@ export const validationSchemas = {
   // Freight calculation
   freight: z.object({
     postalCode: z.string()
-      .transform(sanitizeInput)
       .regex(/^\d{8}$/, 'CEP deve ter 8 dígitos')
-      .transform(cep => cep.replace(/\D/g, '')),
+      .transform((cep: string) => cep.replace(/\D/g, '')),
 
     weight: z.number()
       .min(1, 'Peso deve ser maior que zero')
@@ -190,12 +172,10 @@ export const validationSchemas = {
   // Product creation/update (admin)
   product: z.object({
     name: z.string()
-      .transform(sanitizeInput)
       .min(2, 'Nome do produto deve ter pelo menos 2 caracteres')
       .max(200, 'Nome muito longo'),
 
     description: z.string()
-      .transform(sanitizeInput)
       .max(2000, 'Descrição muito longa')
       .optional(),
 
@@ -224,7 +204,7 @@ export const validationSchemas = {
  * Middleware factory for request validation
  */
 export const validateRequest = (schema: z.ZodSchema) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     try {
       // Sanitize and validate request body
       const validatedData = schema.parse(req.body);
@@ -240,16 +220,18 @@ export const validateRequest = (schema: z.ZodSchema) => {
           message: err.message
         }));
 
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Dados inválidos',
           details: errorMessages
         });
+        return;
       }
 
       console.error('Validation error:', error);
-      return res.status(500).json({
+      res.status(500).json({
         error: 'Erro interno do servidor'
       });
+      return;
     }
   };
 };
@@ -258,7 +240,7 @@ export const validateRequest = (schema: z.ZodSchema) => {
  * Middleware for query parameter validation
  */
 export const validateQuery = (schema: z.ZodSchema) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     try {
       // Convert query parameters to appropriate types
       const queryData: any = {};
@@ -287,16 +269,18 @@ export const validateQuery = (schema: z.ZodSchema) => {
           message: err.message
         }));
 
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Parâmetros de consulta inválidos',
           details: errorMessages
         });
+        return;
       }
 
       console.error('Query validation error:', error);
-      return res.status(500).json({
+      res.status(500).json({
         error: 'Erro interno do servidor'
       });
+      return;
     }
   };
 };

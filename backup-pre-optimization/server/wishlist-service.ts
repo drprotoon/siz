@@ -129,7 +129,7 @@ export class WishlistService {
     // Add valid products to wishlist
     for (const productId of validProductIds) {
       try {
-        await storage.addToWishlist({ userId, productId });
+        await storage.addToWishlist(userId, productId);
       } catch (error) {
         console.error(`Error adding product ${productId} to wishlist:`, error);
       }

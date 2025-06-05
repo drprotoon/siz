@@ -13,7 +13,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, getDiscountPercentage } from "@/lib/utils";
 import { Heart, ShoppingBag, CheckCircle, Truck, CreditCard, Loader2 } from "lucide-react";
-import { FrenetShippingService } from "@/lib/frenetService";
+// Frenet integrado ao freight-client
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 

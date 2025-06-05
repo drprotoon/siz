@@ -1,4 +1,4 @@
-import { FrenetAddressResponse } from '@/lib/frenetService';
+// Frenet integrado ao freight-client
 import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, Home } from 'lucide-react';
 

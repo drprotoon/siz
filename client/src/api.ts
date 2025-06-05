@@ -169,6 +169,21 @@ export const userAPI = {
     api.put('/users/address', addressData)
 };
 
+// Settings API
+export const settingsAPI = {
+  getByCategory: (category: string) =>
+    api.get(`/settings/${category}`),
+
+  getSetting: (category: string, key: string) =>
+    api.get(`/settings/${category}/${key}`),
+
+  updateSetting: (category: string, key: string, value: string, description?: string) =>
+    api.put(`/settings/${category}/${key}`, { value, description }),
+
+  createSetting: (key: string, value: string, description?: string, category?: string) =>
+    api.post('/settings', { key, value, description, category })
+};
+
 // Health check API
 export const healthAPI = {
   check: () =>

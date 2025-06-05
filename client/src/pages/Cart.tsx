@@ -14,7 +14,7 @@ import { Trash2, ShoppingBag, ArrowLeft, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import ShippingCalculator from "@/components/ShippingCalculator";
-import type { FrenetShippingService } from "@/lib/frenetService";
+// Frenet integrado ao freight-client
 import { useShipping } from "@/contexts/ShippingContext";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";

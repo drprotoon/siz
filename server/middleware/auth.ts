@@ -186,7 +186,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
  * Session-based authentication middleware (for backward compatibility)
  */
 export const requireSession = (req: Request, res: Response, next: NextFunction) => {
-  if (req.session && req.session.userId) {
+  if (req.session && (req.session as any).userId) {
     // Session exists, continue
     next();
   } else {
@@ -329,7 +329,7 @@ export const csrfProtection = (req: Request, res: Response, next: NextFunction) 
   }
 
   const token = req.headers['x-csrf-token'] || req.body._csrf;
-  const sessionToken = req.session?.csrfToken;
+  const sessionToken = (req.session as any)?.csrfToken;
 
   if (!token || !sessionToken || token !== sessionToken) {
     return res.status(403).json({
@@ -349,7 +349,7 @@ export const generateCSRFToken = (req: Request): string => {
                 Math.random().toString(36).substring(2, 15);
 
   if (req.session) {
-    req.session.csrfToken = token;
+    (req.session as any).csrfToken = token;
   }
 
   return token;

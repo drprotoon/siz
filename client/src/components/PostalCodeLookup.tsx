@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertTriangle, Truck, Clock, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getAddressByCEP, getShippingQuote, FrenetAddressResponse, FrenetQuoteRequest, FrenetShippingService } from '@/lib/frenetService';
+// Frenet integrado ao freight-client
 import AddressDisplay from '@/components/AddressDisplay';
 import ShippingOptionsModal from '@/components/ShippingOptionsModal';
 import { formatPostalCode, formatCurrency } from '@/lib/utils';
