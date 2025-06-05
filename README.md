@@ -124,15 +124,6 @@ DATABASE_URL=postgres://<usuario>:<senha>@<host>.supabase.co:5432/postgres
 - `/migrations` - Migrações do banco de dados
 - `/scripts` - Scripts utilitários
 
-## Usuários Padrão
-
-- **Administrador**:
-  - Usuário: admin
-  - Senha: 123456
-
-- **Cliente**:
-  - Usuário: teste
-  - Senha: 123456
 
 ## Funcionalidades
 
