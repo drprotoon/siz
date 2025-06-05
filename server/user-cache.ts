@@ -1,47 +1,38 @@
-import { FreightCalculationResponse, FreightOption } from '@shared/schema';
-
-interface FreightCacheEntry {
-  result: FreightCalculationResponse;
+interface UserCacheEntry {
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    role: string;
+  };
   timestamp: number;
-  ttl: number; // Time to live in milliseconds
+  ttl: number;
 }
 
-interface FreightCache {
-  [key: string]: FreightCacheEntry;
+interface UserCache {
+  [userId: string]: UserCacheEntry;
 }
 
 /**
- * Service for caching freight calculations to improve performance
- * and reduce API calls to external shipping providers
+ * Service for caching user data to reduce database queries
  */
-export class FreightCacheService {
-  private cache: FreightCache = {};
-  private readonly DEFAULT_TTL = 3600000; // 1 hour in milliseconds
-  private readonly WEIGHT_GROUP_SIZE = 100; // Group weights by 100g intervals
-  private readonly MAX_CACHE_SIZE = 1000; // Maximum number of cache entries
-
-  /**
-   * Generate a cache key based on postal code and weight group
-   * Groups weights to reduce cache fragmentation (e.g., 150g and 180g use same cache)
-   */
-  private getCacheKey(postalCode: string, weight: number): string {
-    const formattedCEP = postalCode.replace(/\D/g, '');
-    const weightGroup = Math.ceil(weight / this.WEIGHT_GROUP_SIZE) * this.WEIGHT_GROUP_SIZE;
-    return `${formattedCEP}-${weightGroup}g`;
-  }
+export class UserCacheService {
+  private cache: UserCache = {};
+  private readonly DEFAULT_TTL = 300000; // 5 minutes in milliseconds
+  private readonly MAX_CACHE_SIZE = 500; // Maximum number of cached users
 
   /**
    * Check if a cache entry is still valid
    */
-  private isValidEntry(entry: FreightCacheEntry): boolean {
+  private isValidEntry(entry: UserCacheEntry): boolean {
     return (Date.now() - entry.timestamp) < entry.ttl;
   }
 
   /**
-   * Get cached freight calculation or return null if not found/expired
+   * Get cached user data or return null if not found/expired
    */
-  getCached(postalCode: string, weight: number): FreightCalculationResponse | null {
-    const key = this.getCacheKey(postalCode, weight);
+  getCached(userId: number): UserCacheEntry['user'] | null {
+    const key = userId.toString();
     const entry = this.cache[key];
 
     if (!entry) {
@@ -54,38 +45,37 @@ export class FreightCacheService {
       return null;
     }
 
-    console.log(`Cache HIT for ${key}`);
-    return entry.result;
+    console.log(`User cache HIT for user ${userId}`);
+    return entry.user;
   }
 
   /**
-   * Store freight calculation result in cache
+   * Store user data in cache
    */
   setCached(
-    postalCode: string,
-    weight: number,
-    result: FreightCalculationResponse,
+    userId: number,
+    user: UserCacheEntry['user'],
     ttl: number = this.DEFAULT_TTL
   ): void {
-    const key = this.getCacheKey(postalCode, weight);
-
+    const key = userId.toString();
+    
     // Check if cache is full and clean up if necessary
     if (Object.keys(this.cache).length >= this.MAX_CACHE_SIZE) {
       this.cleanupExpired();
-
+      
       // If still full after cleanup, remove oldest entries
       if (Object.keys(this.cache).length >= this.MAX_CACHE_SIZE) {
         this.removeOldestEntries(Math.floor(this.MAX_CACHE_SIZE * 0.1)); // Remove 10%
       }
     }
-
+    
     this.cache[key] = {
-      result,
+      user,
       timestamp: Date.now(),
       ttl
     };
 
-    console.log(`Cache SET for ${key} (TTL: ${ttl}ms)`);
+    console.log(`User cache SET for user ${userId} (TTL: ${ttl}ms)`);
   }
 
   /**
@@ -95,12 +85,12 @@ export class FreightCacheService {
     const entries = Object.entries(this.cache)
       .sort(([, a], [, b]) => a.timestamp - b.timestamp)
       .slice(0, count);
-
+    
     entries.forEach(([key]) => {
       delete this.cache[key];
     });
-
-    console.log(`Removed ${entries.length} oldest cache entries`);
+    
+    console.log(`Removed ${entries.length} oldest user cache entries`);
   }
 
   /**
@@ -117,7 +107,18 @@ export class FreightCacheService {
     }
 
     if (removedCount > 0) {
-      console.log(`Cleaned up ${removedCount} expired cache entries`);
+      console.log(`Cleaned up ${removedCount} expired user cache entries`);
+    }
+  }
+
+  /**
+   * Remove specific user from cache (e.g., when user data is updated)
+   */
+  invalidateUser(userId: number): void {
+    const key = userId.toString();
+    if (this.cache[key]) {
+      delete this.cache[key];
+      console.log(`Invalidated cache for user ${userId}`);
     }
   }
 
@@ -126,7 +127,7 @@ export class FreightCacheService {
    */
   clearAll(): void {
     this.cache = {};
-    console.log('Freight cache cleared');
+    console.log('User cache cleared');
   }
 
   /**
@@ -153,9 +154,9 @@ export class FreightCacheService {
 }
 
 // Singleton instance
-export const freightCache = new FreightCacheService();
+export const userCache = new UserCacheService();
 
-// Cleanup expired entries every 30 minutes
+// Cleanup expired entries every 10 minutes
 setInterval(() => {
-  freightCache.cleanupExpired();
-}, 30 * 60 * 1000);
+  userCache.cleanupExpired();
+}, 10 * 60 * 1000);

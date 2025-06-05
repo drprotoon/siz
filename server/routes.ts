@@ -20,6 +20,22 @@ import MemoryStore from "memorystore";
 import { ensureImagesArray, prepareImagesForStorage } from "./utils";
 import multer from 'multer';
 import axios from 'axios';
+import rateLimit from 'express-rate-limit';
+// Import validation and auth middlewares
+import {
+  validateRequest,
+  validateQuery,
+  validationSchemas,
+  rateLimitConfig
+} from './middleware/validation';
+import {
+  requireAuth,
+  requireAdmin,
+  requireRole,
+  optionalAuth,
+  securityHeaders,
+  generateToken
+} from './middleware/auth';
 import {
   initStorageService,
   uploadFile,
@@ -71,6 +87,17 @@ declare global {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // Apply security headers to all routes
+  app.use(securityHeaders);
+
+  // Rate limiting
+  const generalLimiter = rateLimit(rateLimitConfig.general);
+  const authLimiter = rateLimit(rateLimitConfig.auth);
+  const freightLimiter = rateLimit(rateLimitConfig.freight);
+
+  // Apply general rate limiting to all API routes
+  app.use('/api', generalLimiter);
 
   // Session setup
   const MemoryStoreSession = MemoryStore(session);
@@ -169,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Authentication routes
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", authLimiter, validateRequest(validationSchemas.login), (req, res, next) => {
     console.log("Login attempt:", req.body.username);
 
     passport.authenticate("local", async (err: Error, user: User, info: { message: string }) => {
@@ -288,9 +315,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", authLimiter, validateRequest(validationSchemas.register), async (req, res) => {
     try {
-      const userData = insertUserSchema.parse(req.body);
+      const userData = req.body; // Already validated by middleware
 
       // Check if user already exists
       const existingUser = await storage.getUserByUsername(userData.username);
@@ -415,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Product routes
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", validateQuery(validationSchemas.search), async (req, res) => {
     try {
       console.log("Fetching products...");
       const options: { categoryId?: number, featured?: boolean, visible?: boolean } = {};
@@ -756,60 +783,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Wishlist routes
+  // Optimized wishlist routes
   app.get("/api/wishlist", isAuthenticated, async (req, res) => {
     try {
-      const wishlistItems = await storage.getUserWishlistWithProducts(req.user?.id || 0);
+      const { wishlistService } = await import('./wishlist-service');
+      const wishlistItems = await wishlistService.getUserWishlist(req.user?.id || 0);
       res.json(wishlistItems);
     } catch (error) {
+      console.error("Error fetching wishlist:", error);
       res.status(500).json({ message: "Erro ao buscar lista de desejos" });
     }
   });
 
   app.post("/api/wishlist", isAuthenticated, async (req, res) => {
     try {
-      const wishlistItemData = insertWishlistItemSchema.parse({
-        ...req.body,
-        userId: req.user?.id || 0
+      const { productId } = req.body;
+
+      if (!productId || typeof productId !== "number") {
+        return res.status(400).json({ message: "ID do produto é obrigatório" });
+      }
+
+      const { wishlistService } = await import('./wishlist-service');
+
+      // Check if already in wishlist
+      const isAlreadyInWishlist = await wishlistService.isInWishlist(req.user?.id || 0, productId);
+      if (isAlreadyInWishlist) {
+        return res.status(400).json({ message: "Produto já está na lista de desejos" });
+      }
+
+      // Add to wishlist using optimized service
+      await wishlistService.addToWishlist(req.user?.id || 0, productId);
+
+      res.status(201).json({
+        message: "Produto adicionado à lista de desejos",
+        productId
       });
-
-      // Check if product exists
-      const product = await storage.getProduct(wishlistItemData.productId);
-      if (!product) {
-        return res.status(404).json({ message: "Produto não encontrado" });
-      }
-
-      const wishlistItem = await storage.addToWishlist(wishlistItemData);
-      res.status(201).json(wishlistItem);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
-      } else {
-        res.status(500).json({ message: "Erro ao adicionar à lista de desejos" });
-      }
+      console.error("Error adding to wishlist:", error);
+      res.status(500).json({ message: "Erro ao adicionar à lista de desejos" });
     }
   });
 
-  app.delete("/api/wishlist/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/wishlist/:productId", isAuthenticated, async (req, res) => {
     try {
-      const wishlistItemId = parseInt(req.params.id);
+      const productId = parseInt(req.params.productId);
 
-      // Get the wishlist item to verify ownership
-      const wishlistItems = await storage.getUserWishlist(req.user?.id || 0);
-      const wishlistItem = wishlistItems.find(item => item.id === wishlistItemId);
-
-      if (!wishlistItem) {
-        return res.status(404).json({ message: "Item não encontrado na lista de desejos" });
+      if (!productId || isNaN(productId)) {
+        return res.status(400).json({ message: "ID do produto inválido" });
       }
 
-      const success = await storage.removeFromWishlist(wishlistItemId);
+      const { wishlistService } = await import('./wishlist-service');
 
-      if (!success) {
-        return res.status(404).json({ message: "Item não encontrado na lista de desejos" });
+      // Check if product is in wishlist
+      const isInWishlist = await wishlistService.isInWishlist(req.user?.id || 0, productId);
+      if (!isInWishlist) {
+        return res.status(404).json({ message: "Produto não encontrado na lista de desejos" });
       }
 
-      res.json({ message: "Item removido da lista de desejos" });
+      // Remove from wishlist using optimized service
+      await wishlistService.removeFromWishlist(req.user?.id || 0, productId);
+
+      res.json({ message: "Produto removido da lista de desejos" });
     } catch (error) {
+      console.error("Error removing from wishlist:", error);
       res.status(500).json({ message: "Erro ao remover da lista de desejos" });
     }
   });
@@ -817,9 +853,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wishlist/check/:productId", isAuthenticated, async (req, res) => {
     try {
       const productId = parseInt(req.params.productId);
-      const isInWishlist = await storage.isProductInWishlist(req.user?.id || 0, productId);
+
+      if (!productId || isNaN(productId)) {
+        return res.status(400).json({ message: "ID do produto inválido" });
+      }
+
+      const { wishlistService } = await import('./wishlist-service');
+      const isInWishlist = await wishlistService.isInWishlist(req.user?.id || 0, productId);
       res.json({ isInWishlist });
     } catch (error) {
+      console.error("Error checking wishlist:", error);
       res.status(500).json({ message: "Erro ao verificar produto na lista de desejos" });
     }
   });
@@ -972,26 +1015,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Freight calculation
-  app.post("/api/freight/calculate", async (req, res) => {
+  // Consolidated freight calculation endpoint
+  app.post("/api/freight/calculate", freightLimiter, validateRequest(validationSchemas.freight), async (req, res) => {
     try {
       const { postalCode, weight, orderTotal } = req.body;
       console.log("Recebida requisição de cálculo de frete:", { postalCode, weight, orderTotal });
 
-      if (!postalCode || typeof postalCode !== "string") {
-        console.log("CEP inválido:", postalCode);
-        return res.status(400).json({ message: "Invalid postal code" });
-      }
+      // Check cache first
+      const { freightCache } = await import('./freight-cache');
+      const cachedResult = freightCache.getCached(postalCode, weight);
 
-      if (!weight || typeof weight !== "number" || weight <= 0) {
-        console.log("Peso inválido:", weight);
-        return res.status(400).json({ message: "Invalid weight" });
+      if (cachedResult) {
+        // Apply free shipping to cached result if eligible
+        if (orderTotal && typeof orderTotal === "number") {
+          const { applyFreeShipping } = await import('./shipping');
+          cachedResult.options = applyFreeShipping(cachedResult.options, orderTotal);
+        }
+        return res.json(cachedResult);
       }
 
       // Calculate shipping options
       console.log("Calculando opções de frete para CEP:", postalCode, "e peso:", weight);
       const freightResponse = await storage.calculateFreight(postalCode, weight);
       console.log("Resposta do cálculo de frete:", freightResponse);
+
+      // Cache the result before applying free shipping
+      freightCache.setCached(postalCode, weight, freightResponse);
 
       // Apply free shipping if eligible
       if (orderTotal && typeof orderTotal === "number") {
@@ -1094,100 +1143,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Endpoint para cotação de frete usando a API da Frenet
-  app.post("/api/freight/quote", async (req, res) => {
+  // Legacy endpoint for backward compatibility - redirects to main freight calculation
+  app.post("/api/freight/quote", freightLimiter, async (req, res) => {
     try {
-      // Verificar se a requisição veio diretamente ou dentro de um objeto 'request'
+      // Convert Frenet API format to our standard format
       let requestData = req.body;
       if (req.body.request) {
         requestData = req.body.request;
       }
 
-      console.log("Recebida requisição de cotação de frete:", JSON.stringify(requestData));
-
       if (!requestData || !requestData.RecipientCEP || !requestData.ShippingItemArray) {
-        console.log("Dados de requisição inválidos:", requestData);
         return res.status(400).json({
           message: "Dados de requisição inválidos",
           ShippingSevicesArray: []
         });
       }
 
-      // Validar CEP do destinatário
-      const recipientCEP = requestData.RecipientCEP.replace(/\D/g, '');
-      if (recipientCEP.length !== 8) {
-        console.log("CEP do destinatário inválido:", requestData.RecipientCEP);
-        return res.status(400).json({
-          message: "CEP do destinatário inválido",
-          ShippingSevicesArray: []
-        });
-      }
-
-      // Validar CEP do remetente
-      const sellerCEP = requestData.SellerCEP.replace(/\D/g, '');
-      if (sellerCEP.length !== 8) {
-        console.log("CEP do remetente inválido:", requestData.SellerCEP);
-        return res.status(400).json({
-          message: "CEP do remetente inválido",
-          ShippingSevicesArray: []
-        });
-      }
-
-      // Verificar e converter os pesos para números
-      if (requestData.ShippingItemArray && Array.isArray(requestData.ShippingItemArray)) {
-        requestData.ShippingItemArray = requestData.ShippingItemArray.map((item: any) => {
-          // Converter o peso para número
-          if (item.Weight !== undefined) {
-            if (typeof item.Weight === 'string') {
-              item.Weight = parseFloat(item.Weight.replace(/[^\d.-]/g, ''));
-            } else {
-              item.Weight = Number(item.Weight);
-            }
-
-            // Garantir que o peso seja um número válido
-            if (isNaN(item.Weight) || item.Weight <= 0) {
-              item.Weight = 0.5; // valor padrão se inválido
-            }
-
-            // Converter para kg se o peso for muito alto (provavelmente está em gramas)
-            if (item.Weight > 30) {
-              item.Weight = item.Weight / 1000;
-            }
-          }
-
-          // Converter outras dimensões para números
-          if (item.Height !== undefined) item.Height = Number(item.Height) || 10;
-          if (item.Length !== undefined) item.Length = Number(item.Length) || 15;
-          if (item.Width !== undefined) item.Width = Number(item.Width) || 15;
-
-          return item;
-        });
-      }
-
-      console.log("Enviando requisição para a API da Frenet com dados convertidos:", JSON.stringify(requestData));
-
-      // Fazer a requisição para a API da Frenet
-      const response = await axios.post("https://api.frenet.com.br/shipping/quote", requestData, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'token': "13B9E436RD32DR455ERAC99R93357F8D6640"
+      // Calculate total weight from shipping items
+      const totalWeight = requestData.ShippingItemArray.reduce((total: number, item: any) => {
+        let weight = Number(item.Weight) || 0.5;
+        // Convert to kg if weight seems to be in grams
+        if (weight > 30) {
+          weight = weight / 1000;
         }
-      });
+        return total + weight;
+      }, 0);
 
-      console.log("Resposta da API da Frenet:", JSON.stringify(response.data));
+      // Use our consolidated freight calculation
+      const freightRequest = {
+        postalCode: requestData.RecipientCEP,
+        weight: totalWeight,
+        orderTotal: requestData.ShipmentInvoiceValue
+      };
 
-      // Verificar se a resposta contém os dados esperados
-      if (!response.data) {
-        console.log("Resposta vazia da API da Frenet");
-        return res.status(500).json({
-          message: "Resposta vazia da API da Frenet",
-          ShippingSevicesArray: []
-        });
+      // Call our main freight calculation endpoint internally
+      const { freightCache } = await import('./freight-cache');
+      const cachedResult = freightCache.getCached(freightRequest.postalCode, freightRequest.weight);
+
+      let freightResponse;
+      if (cachedResult) {
+        freightResponse = cachedResult;
+      } else {
+        freightResponse = await storage.calculateFreight(freightRequest.postalCode, freightRequest.weight);
+        freightCache.setCached(freightRequest.postalCode, freightRequest.weight, freightResponse);
       }
 
-      // Retornar a resposta original da API da Frenet
-      res.json(response.data);
+      // Convert our response format to Frenet API format for backward compatibility
+      const frenetResponse = {
+        ShippingSevicesArray: freightResponse.options.map((option: any) => ({
+          ServiceCode: option.name.replace(/\s+/g, '_').toUpperCase(),
+          ServiceDescription: option.name,
+          ShippingPrice: option.price,
+          DeliveryTime: option.estimatedDays,
+          Carrier: option.name.includes('PAC') ? 'Correios' : 'Correios',
+          Error: false
+        }))
+      };
+
+      res.json(frenetResponse);
     } catch (error) {
       console.error("Erro na cotação de frete:", error);
       res.status(500).json({
