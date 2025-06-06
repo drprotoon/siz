@@ -31,6 +31,14 @@
       "dest": "/api/debug.ts"
     },
     {
+      "src": "/api/users/([^/]+)/profile",
+      "dest": "/api/users/$1/profile.ts"
+    },
+    {
+      "src": "/api/users/([^/]+)/address",
+      "dest": "/api/users/$1/address.ts"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/server/vercel.ts"
     },

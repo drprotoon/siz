@@ -50,24 +50,12 @@ function serveStatic(app: express.Express) {
 
   // Middleware para SPA - APENAS para rotas que NÃO são da API
   app.get("*", (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    // Se for uma rota da API, passa para o próximo middleware (que deve retornar 404)
+    // Se for uma rota da API, deixa o Express lidar com 404s naturalmente
+    // Removido o middleware problemático que interceptava /api/users
     if (req.originalUrl && req.originalUrl.startsWith('/api')) {
       console.log(`API endpoint não encontrado: ${req.originalUrl}`);
-
-      // Retornar mensagens específicas para diferentes endpoints
-      if (req.originalUrl.includes('/api/users')) {
-        return res.status(404).json({
-          error: "Users endpoint not found"
-        });
-      } else if (req.originalUrl.includes('/api/auth/status')) {
-        return res.status(404).json({
-          error: "Auth status endpoint not found"
-        });
-      } else {
-        return res.status(404).json({
-          error: `API endpoint not found: ${req.originalUrl}`
-        });
-      }
+      // Não interceptar mais - deixar o Express lidar com isso
+      return next();
     }
 
     // Se for um arquivo de asset, não serve o index.html
