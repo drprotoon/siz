@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["server/**/*", "shared/**/*", "migrations/**/*", "scripts/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "client"],
+  "include": ["server/**/*", "shared/**/*", "migrations/**/*"],
+  "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "client", "scripts/**/*"],
   "compilerOptions": {
     "module": "ESNext",
     "target": "ES2020",

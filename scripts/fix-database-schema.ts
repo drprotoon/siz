@@ -1,4 +1,4 @@
-import { db } from "../server/db.js";
+import { db } from "../server/db";
 import { sql } from "drizzle-orm";
 
 async function fixDatabaseSchema() {
@@ -13,7 +13,7 @@ async function fixDatabaseSchema() {
       AND table_schema = 'public'
     `);
 
-    const existingColumns = checkColumns.map(row => row.column_name);
+    const existingColumns = checkColumns.rows.map((row: any) => row.column_name);
     console.log("Colunas existentes na tabela products:", existingColumns);
 
     // Lista de colunas que devem existir

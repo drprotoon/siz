@@ -46,6 +46,7 @@ import {
   createNestedFoldersInBucket
 } from './storage-service';
 import { checkSupabaseConnection } from './supabase';
+import { productionConfig, logProductionConfig } from './config/production';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -89,12 +90,18 @@ declare global {
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
+  // Log production configuration if in production
+  if (process.env.NODE_ENV === 'production') {
+    logProductionConfig();
+  }
+
   // Apply security headers to all routes
   app.use(securityHeaders);
 
-  // Rate limiting
-  const generalLimiter = rateLimit(rateLimitConfig.general);
-  const authLimiter = rateLimit(rateLimitConfig.auth);
+  // Rate limiting - use production config in production
+  const isProduction = process.env.NODE_ENV === 'production';
+  const generalLimiter = rateLimit(isProduction ? productionConfig.rateLimit.general : rateLimitConfig.general);
+  const authLimiter = rateLimit(isProduction ? productionConfig.rateLimit.auth : rateLimitConfig.auth);
   const freightLimiter = rateLimit(rateLimitConfig.freight);
 
   // Apply general rate limiting to all API routes
@@ -103,8 +110,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Session setup
   const MemoryStoreSession = MemoryStore(session);
 
-  // Configuração de sessão
-  const sessionConfig = {
+  // Configuração de sessão - usar configuração de produção quando apropriado
+  const sessionConfig = isProduction ? {
+    ...productionConfig.session,
+    store: new MemoryStoreSession({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    })
+  } : {
     secret: process.env.SESSION_SECRET || "beauty-essence-secret",
     resave: false,
     saveUninitialized: false,

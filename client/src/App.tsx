@@ -20,6 +20,7 @@ import AdminCategories from "@/pages/Admin/Categories";
 import ProductForm from "@/pages/Admin/ProductForm";
 import CategoryForm from "@/pages/Admin/CategoryForm";
 import FrenetSettings from "@/pages/admin/FrenetSettings";
+import AdminSettings from "@/pages/Admin/Settings";
 import FreightTest from "@/pages/FreightTest";
 import TestPixCheckout from "@/pages/TestPixCheckout";
 import { Toaster } from "@/components/ui/toaster";
@@ -101,6 +102,9 @@ function Routes() {
       </Route>
       <Route path="/admin/frenet-settings">
         <AdminRoute component={FrenetSettings} />
+      </Route>
+      <Route path="/admin/settings">
+        <AdminRoute component={AdminSettings} />
       </Route>
 
       {/* Fallback to 404 */}

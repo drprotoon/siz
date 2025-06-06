@@ -23,5 +23,11 @@ INSERT INTO "settings" ("key", "value", "description", "category") VALUES
   ('frenet_enabled', 'true', 'Habilitar integração com Frenet', 'frenet'),
   ('free_shipping_threshold', '150', 'Valor mínimo para frete grátis (em reais)', 'shipping'),
   ('store_name', 'SIZ Cosméticos', 'Nome da loja', 'general'),
-  ('store_email', 'contato@sizcos.com', 'Email da loja', 'general')
+  ('store_email', 'contato@sizcos.com', 'Email da loja', 'general'),
+  ('store_phone', '', 'Telefone da loja', 'general'),
+  ('abacatepay_api_key', '', 'Chave da API do AbacatePay', 'pix'),
+  ('abacatepay_api_url', 'https://api.abacatepay.com', 'URL da API do AbacatePay', 'pix'),
+  ('abacatepay_webhook_secret', '', 'Chave secreta para validar webhooks', 'pix'),
+  ('webhook_base_url', '', 'URL base para webhooks', 'pix'),
+  ('pix_enabled', 'true', 'Habilitar pagamentos PIX', 'pix')
 ON CONFLICT ("key") DO NOTHING;

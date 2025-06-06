@@ -12,14 +12,16 @@
           "migrations/**",
           "package.json",
           "tsconfig.server.json"
-        ]
+        ],
+        "maxLambdaSize": "50mb"
       }
     },
     {
-      "src": "client/package.json",
+      "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "buildCommand": "npm run build:prod",
+        "distDir": "dist/public"
       }
     }
   ],
@@ -38,7 +40,8 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "DISABLE_SECURE_COOKIE": "false"
   },
   "functions": {
     "server/vercel.ts": {

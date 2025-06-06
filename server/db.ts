@@ -44,7 +44,7 @@ async function tableExists(tableName: string): Promise<boolean> {
         AND table_name = ${tableName}
       )
     `);
-    return result.rows[0]?.exists || false;
+    return Boolean(result.rows[0]?.exists) || false;
   } catch (error) {
     console.error(`Error checking if table ${tableName} exists:`, error);
     return false;

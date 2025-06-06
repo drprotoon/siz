@@ -156,17 +156,17 @@ export const shippingAPI = {
 
 // User API
 export const userAPI = {
-  getProfile: () =>
-    api.get('/users/profile'),
+  getProfile: (userId: number) =>
+    api.get(`/users/${userId}/profile`),
 
-  updateProfile: (profileData: any) =>
-    api.put('/users/profile', profileData),
+  updateProfile: (userId: number, profileData: any) =>
+    api.put(`/users/${userId}/profile`, profileData),
 
-  getAddress: () =>
-    api.get('/users/address'),
+  getAddress: (userId: number) =>
+    api.get(`/users/${userId}/address`),
 
-  saveAddress: (addressData: any) =>
-    api.put('/users/address', addressData)
+  saveAddress: (userId: number, addressData: any) =>
+    api.post(`/users/${userId}/address`, addressData)
 };
 
 // Settings API

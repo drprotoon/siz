@@ -210,6 +210,60 @@ export class MemStorage implements IStorage {
       },
       {
         id: this.settingCurrentId++,
+        key: 'store_phone',
+        value: '',
+        description: 'Telefone da loja',
+        category: 'general',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
+        key: 'abacatepay_api_key',
+        value: '',
+        description: 'Chave da API do AbacatePay',
+        category: 'pix',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
+        key: 'abacatepay_api_url',
+        value: 'https://api.abacatepay.com',
+        description: 'URL da API do AbacatePay',
+        category: 'pix',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
+        key: 'abacatepay_webhook_secret',
+        value: '',
+        description: 'Chave secreta para validar webhooks',
+        category: 'pix',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
+        key: 'webhook_base_url',
+        value: '',
+        description: 'URL base para webhooks',
+        category: 'pix',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
+        key: 'pix_enabled',
+        value: 'true',
+        description: 'Habilitar pagamentos PIX',
+        category: 'pix',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: this.settingCurrentId++,
         key: 'free_shipping_threshold',
         value: '150',
         description: 'Valor mínimo para frete grátis (em reais)',
