@@ -100,28 +100,6 @@ async function startServer() {
     const server = await registerRoutes(app);
     console.log('API routes registered successfully');
 
-    // Adicionar um middleware de fallback para endpoints da API não encontrados
-    app.all('/api/*', (req, res) => {
-      console.log(`API endpoint not found: ${req.method} ${req.originalUrl}`);
-
-      // Retornar mensagens específicas para diferentes endpoints
-      if (req.originalUrl.includes('/api/users')) {
-        return res.status(404).json({
-          error: "Users endpoint not found"
-        });
-      } else if (req.originalUrl.includes('/api/auth/status')) {
-        return res.status(404).json({
-          error: "Auth status endpoint not found"
-        });
-      } else {
-        return res.status(404).json({
-          error: `API endpoint not found: ${req.originalUrl}`,
-          method: req.method,
-          path: req.originalUrl
-        });
-      }
-    });
-
     // Log das rotas registradas para debug
     console.log('Registered routes:');
     app._router.stack.forEach((middleware: any) => {

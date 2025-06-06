@@ -211,10 +211,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Authentication middleware
+  // JWT middleware for user authentication
+  const isAuthenticatedJWT = async (req: Request, res: Response, next: Function) => {
+    try {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log("JWT Auth check: No token provided");
+        return res.status(401).json({
+          message: "Usuário não autenticado",
+          error: "No token provided"
+        });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+
+      if (!process.env.JWT_SECRET) {
+        console.error("JWT_SECRET not configured");
+        return res.status(500).json({
+          message: "Server configuration error"
+        });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+
+      // Add user info to request for use in route handlers
+      req.user = {
+        id: decoded.id,
+        username: decoded.username,
+        email: decoded.email || '',
+        role: decoded.role
+      };
+
+      console.log("JWT Auth successful for user:", decoded.username);
+      next();
+    } catch (error) {
+      console.error("JWT Auth error:", error);
+      res.status(401).json({
+        message: "Usuário não autenticado",
+        error: "Invalid token"
+      });
+    }
+  };
+
   const isAuthenticated = (req: Request, res: Response, next: Function) => {
+    console.log("Auth check - Details:", {
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user,
+      hasAuthHeader: !!req.headers.authorization,
+      environment: process.env.NODE_ENV
+    });
+
+    // Try JWT authentication first if Authorization header is present
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      console.log("Using JWT authentication");
+      return isAuthenticatedJWT(req, res, next);
+    }
+
+    // Fallback to session-based authentication
     if (req.isAuthenticated()) {
+      console.log("Session-based auth successful for user:", req.user?.username);
       return next();
     }
+
+    console.log("Authentication failed - no valid session or JWT token");
     res.status(401).json({ message: "Unauthorized" });
   };
 
@@ -1807,14 +1867,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Obter perfil do usuário
-  app.get("/api/users/:userId/profile", async (req, res) => {
+  app.get("/api/users/:userId/profile", isAuthenticated, async (req, res) => {
     try {
       const { userId } = req.params;
 
-      // Verificar se o usuário está autenticado
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Usuário não autenticado" });
-      }
+      console.log("Profile get request:", {
+        userId,
+        user: req.user,
+        isAuthenticated: req.isAuthenticated()
+      });
 
       // Verificar se o usuário está tentando acessar seu próprio perfil
       if (req.user.id !== parseInt(userId)) {
@@ -1840,15 +1901,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Atualizar perfil do usuário
-  app.put("/api/users/:userId/profile", async (req, res) => {
+  app.put("/api/users/:userId/profile", isAuthenticated, async (req, res) => {
     try {
       const { userId } = req.params;
       const profileData = req.body;
 
-      // Verificar se o usuário está autenticado
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Usuário não autenticado" });
-      }
+      console.log("Profile update request:", {
+        userId,
+        profileData,
+        user: req.user,
+        isAuthenticated: req.isAuthenticated()
+      });
 
       // Verificar se o usuário está tentando atualizar seu próprio perfil
       if (req.user.id !== parseInt(userId)) {

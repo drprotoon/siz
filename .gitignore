@@ -1,12 +1,47 @@
+# Dependencies
 node_modules
+
+# Build outputs
 dist
-.DS_Store
 server/public
-vite.config.ts.*
-*.tar.gz
+
+# Environment files (NEVER commit these)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+
+# Vercel
 .vercel
+
+# Temporary files
+*.tar.gz
+vite.config.ts.*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+cosmetic_store.db
+siz_cosmeticos.db
+
+# Backup files
+backup-*
+*_backup
+*_dump.sql
+
+# Log files
+*.log
+logs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+test-*
+*test.html
