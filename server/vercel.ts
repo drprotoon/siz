@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
+import { runEssentialMigrations } from "./db";
 
 // Configuração para ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -99,6 +100,18 @@ async function startServer() {
     console.log('Registering API routes...');
     const server = await registerRoutes(app);
     console.log('API routes registered successfully');
+
+    // Executar migrações essenciais em produção
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+      console.log('Running essential migrations for production...');
+      try {
+        await runEssentialMigrations();
+        console.log('✅ Essential migrations completed successfully');
+      } catch (error) {
+        console.error('❌ Failed to run essential migrations:', error);
+        // Não falhar o deploy por causa das migrações, apenas logar o erro
+      }
+    }
 
     // Log das rotas registradas para debug
     console.log('Registered routes:');

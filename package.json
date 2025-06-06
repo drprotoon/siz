@@ -18,6 +18,7 @@
     "db:seed": "tsx scripts/seed-database.ts",
     "db:reset": "npm run db:setup && npm run db:seed",
     "db:migrate": "drizzle-kit generate:pg",
+    "db:migrate:essential": "tsx scripts/run-essential-migrations.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

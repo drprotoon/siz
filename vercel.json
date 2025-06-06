@@ -9,6 +9,7 @@
         "includeFiles": [
           "server/**",
           "shared/**",
+          "migrations/**",
           "package.json",
           "tsconfig.server.json"
         ]
