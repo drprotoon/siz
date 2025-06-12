@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "siz-ecommerce",
+  "_comment": "Updated with bundle optimizations - Dec 2024",
   "builds": [
     {
       "src": "server/vercel.ts",
@@ -13,7 +14,8 @@
           "package.json",
           "tsconfig.server.json"
         ],
-        "maxLambdaSize": "50mb"
+        "maxLambdaSize": "50mb",
+        "maxDuration": 30
       }
     },
     {
@@ -71,11 +73,7 @@
     "NODE_ENV": "production",
     "DISABLE_SECURE_COOKIE": "false"
   },
-  "functions": {
-    "server/vercel.ts": {
-      "maxDuration": 30
-    }
-  },
+
   "regions": ["gru1"],
   "framework": null
 }
