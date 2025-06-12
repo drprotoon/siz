@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["server/**/*", "shared/**/*", "migrations/**/*"],
+  "include": ["server/**/*", "shared/**/*", "migrations/**/*", "api/**/*"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "client", "scripts/**/*"],
   "compilerOptions": {
     "module": "ESNext",

@@ -1,7 +1,22 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import { supabase } from './lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client directly in this file to avoid module resolution issues
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 interface AuthenticatedRequest extends VercelRequest {
   user?: {
@@ -36,6 +51,14 @@ async function getUserFromToken(req: AuthenticatedRequest): Promise<any> {
 
 export default async function handler(req: AuthenticatedRequest, res: VercelResponse) {
   const { method } = req;
+
+  // Add debug logging
+  console.log('Auth handler called:', { method, url: req.url });
+  console.log('Environment check:', {
+    hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    hasJwtSecret: !!process.env.JWT_SECRET
+  });
 
   // Handle login endpoint
   if (req.url?.includes('/login-jwt') || method === 'POST') {

@@ -1,5 +1,155 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getUserById, getUserAddress, saveUserAddress, updateUserProfile } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client directly
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+
+// Helper functions (moved from lib/supabase.ts)
+async function getUserById(userId: number) {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Erro ao buscar usuário:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar usuário:', error);
+    return null;
+  }
+}
+
+async function getUserAddress(userId: number) {
+  try {
+    const { data, error } = await supabase
+      .from('addresses')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      // Se não encontrar endereço na tabela addresses, buscar na tabela users
+      const user = await getUserById(userId);
+      if (user && user.postal_code) {
+        return {
+          id: user.id,
+          user_id: user.id,
+          postal_code: user.postal_code,
+          street: user.address || '',
+          number: user.address_number || '',
+          complement: user.address_complement || '',
+          district: user.district || '',
+          city: user.city || '',
+          state: user.state || '',
+          country: user.country || 'Brasil',
+          created_at: user.created_at,
+          updated_at: user.updated_at || user.created_at
+        };
+      }
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar endereço:', error);
+    return null;
+  }
+}
+
+async function saveUserAddress(userId: number, addressData: any) {
+  try {
+    // Primeiro, tentar atualizar se já existe
+    const { data: existingAddress } = await supabase
+      .from('addresses')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (existingAddress) {
+      // Atualizar endereço existente
+      const { data, error } = await supabase
+        .from('addresses')
+        .update({
+          ...addressData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao atualizar endereço:', error);
+        return null;
+      }
+
+      return data;
+    } else {
+      // Criar novo endereço
+      const { data, error } = await supabase
+        .from('addresses')
+        .insert({
+          user_id: userId,
+          ...addressData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao criar endereço:', error);
+        return null;
+      }
+
+      return data;
+    }
+  } catch (error) {
+    console.error('Erro ao salvar endereço:', error);
+    return null;
+  }
+}
+
+async function updateUserProfile(userId: number, profileData: any) {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        ...profileData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao atualizar perfil:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Erro ao atualizar perfil:', error);
+    return null;
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
