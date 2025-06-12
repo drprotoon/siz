@@ -125,11 +125,9 @@ export default function Login() {
           redirectTo = "/admin";
         }
 
-        // Armazenar o destino de redirecionamento no sessionStorage
-        sessionStorage.setItem('loginRedirectTo', redirectTo);
-
-        // Fazer um refresh da página para garantir que o estado de autenticação seja atualizado
-        window.location.href = redirectTo;
+        // Usar navigate em vez de window.location.href para evitar problemas
+        console.log('Redirecionando para:', redirectTo);
+        navigate(redirectTo);
       } catch (error) {
         console.error("Erro ao processar resposta de login:", error);
         // Em caso de erro ao processar o JSON, redireciona para a home

@@ -297,6 +297,7 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
       'http://localhost:3000',
       'http://localhost:5173',
       'https://siz-cosmetic-store-pro.vercel.app',
+      'https://sizcosmeticos.vercel.app',
       process.env.FRONTEND_URL
     ].filter(Boolean);
 

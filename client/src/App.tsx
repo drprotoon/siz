@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
 import Home from "@/pages/Home";
@@ -29,6 +30,20 @@ import { ShippingProvider } from "@/contexts/ShippingContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 
+// Redirect to login component
+function RedirectToLogin() {
+  const [, navigate] = useLocation();
+  const { setCheckoutRedirectUrl } = useAuth();
+
+  useEffect(() => {
+    // Salvar a URL atual para redirecionamento após o login
+    setCheckoutRedirectUrl(window.location.pathname);
+    navigate('/login');
+  }, [navigate, setCheckoutRedirectUrl]);
+
+  return <div>Redirecionando para login...</div>;
+}
+
 // Protected route component
 function AdminRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { isAdmin, isLoading } = useAuth();
@@ -55,16 +70,16 @@ function Routes() {
       <Route path="/category/:slug" component={Category} />
       <Route path="/cart" component={Cart} />
       <Route path="/wishlist">
-        {isAuthenticated ? <Wishlist /> : <Login />}
+        {isAuthenticated ? <Wishlist /> : <RedirectToLogin />}
       </Route>
       <Route path="/profile">
-        {isAuthenticated ? <Profile /> : <Login />}
+        {isAuthenticated ? <Profile /> : <RedirectToLogin />}
       </Route>
       <Route path="/checkout">
-        {isAuthenticated ? <Checkout /> : <Login />}
+        {isAuthenticated ? <Checkout /> : <RedirectToLogin />}
       </Route>
       <Route path="/order-confirmation/:id">
-        {isAuthenticated ? <OrderConfirmation /> : <Login />}
+        {isAuthenticated ? <OrderConfirmation /> : <RedirectToLogin />}
       </Route>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />

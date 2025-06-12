@@ -32,10 +32,66 @@ function runCommand(command, description) {
   }
 }
 
+// Função para corrigir imports em arquivos JS
+function fixImports(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  let content = fs.readFileSync(filePath, 'utf8');
+
+  // Corrigir imports relativos sem extensão
+  content = content.replace(/from\s+["'](\.[^"']*?)["']/g, (match, importPath) => {
+    // Se já tem extensão, não alterar
+    if (importPath.endsWith('.js') || importPath.endsWith('.json')) {
+      return match;
+    }
+
+    // Adicionar .js para imports relativos
+    return match.replace(importPath, importPath + '.js');
+  });
+
+  // Corrigir imports dinâmicos
+  content = content.replace(/import\s*\(\s*["'](\.[^"']*?)["']\s*\)/g, (match, importPath) => {
+    if (importPath.endsWith('.js') || importPath.endsWith('.json')) {
+      return match;
+    }
+    return match.replace(importPath, importPath + '.js');
+  });
+
+  // Corrigir imports do @shared para usar caminho relativo
+  content = content.replace(/from\s+["']@shared\/([^"']*?)["']/g, (match, moduleName) => {
+    // Determinar o caminho relativo baseado na localização do arquivo
+    const relativePath = path.relative(path.dirname(filePath), path.join(distServerDir, 'shared'));
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+    const finalPath = normalizedPath.startsWith('.') ? normalizedPath : './' + normalizedPath;
+    return `from "${finalPath}/${moduleName}.js"`;
+  });
+
+  fs.writeFileSync(filePath, content, 'utf8');
+}
+
+// Função para corrigir todos os arquivos JS em um diretório
+function fixAllImports(dir) {
+  const files = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const file of files) {
+    const fullPath = path.join(dir, file.name);
+
+    if (file.isDirectory()) {
+      fixAllImports(fullPath);
+    } else if (file.name.endsWith('.js')) {
+      console.log(`Corrigindo imports em: ${fullPath}`);
+      fixImports(fullPath);
+    }
+  }
+}
+
 // Compilar o servidor com esbuild
 console.log('Compilando o servidor para produção...');
 
-// API handlers are now part of the TypeScript server build
-// No need to copy separate API directory
+// Corrigir imports nos arquivos compilados
+console.log('Corrigindo imports nos arquivos compilados...');
+fixAllImports(distServerDir);
 
 console.log('✅ Compilação do servidor concluída com sucesso');
