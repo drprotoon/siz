@@ -2,6 +2,8 @@
 
 A modern e-commerce platform built with React, Express, and PostgreSQL, designed for cosmetics and beauty products.
 
+> Última atualização: Otimização de bundle para melhor performance no Vercel
+
 ## Features
 
 - 🛍️ **Product Catalog**: Browse and search beauty products
