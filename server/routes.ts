@@ -1461,106 +1461,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AbacatePay routes
-  // AbacatePay PIX payment creation (development version - no auth required)
-  app.post("/api/payment/abacatepay/create", async (req, res) => {
-    try {
-      const { amount, orderId, customerInfo } = req.body;
+  // AbacatePay routes (DEVELOPMENT ONLY - Mock implementations)
+  // Note: In production, these routes are handled by /api/payment/abacatepay/* files
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    // AbacatePay PIX payment creation (development version - no auth required)
+    app.post("/api/payment/abacatepay/create", async (req, res) => {
+      try {
+        const { amount, orderId, customerInfo } = req.body;
 
-      if (!amount || typeof amount !== "number" || amount <= 0) {
-        return res.status(400).json({ message: "Invalid amount" });
+        if (!amount || typeof amount !== "number" || amount <= 0) {
+          return res.status(400).json({ message: "Invalid amount" });
+        }
+
+        if (!orderId) {
+          return res.status(400).json({ message: "Order ID is required" });
+        }
+
+        // Para desenvolvimento, criar um pagamento PIX mock
+        const mockPaymentData = {
+          id: `pix_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          qrCode: generateMockQRCodeSVG(),
+          qrCodeText: generateMockPixCode(),
+          amount: amount,
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes from now
+        };
+
+        console.log('Mock payment created:', mockPaymentData);
+        res.json(mockPaymentData);
+      } catch (error) {
+        console.error("Error creating AbacatePay PIX payment:", error);
+        res.status(500).json({ message: "Error creating PIX payment" });
       }
+    });
 
-      if (!orderId) {
-        return res.status(400).json({ message: "Order ID is required" });
+    // AbacatePay Credit Card payment creation
+    app.post("/api/payment/abacatepay/create-card", async (req, res) => {
+      try {
+        const { amount, orderId, customerInfo, cardDetails } = req.body;
+
+        if (!amount || typeof amount !== "number" || amount <= 0) {
+          return res.status(400).json({ message: "Invalid amount" });
+        }
+
+        if (!orderId) {
+          return res.status(400).json({ message: "Order ID is required" });
+        }
+
+        if (!cardDetails || !cardDetails.number || !cardDetails.name || !cardDetails.expiry || !cardDetails.cvc) {
+          return res.status(400).json({ message: "Card details are required" });
+        }
+
+        // Para desenvolvimento, criar um pagamento de cartão mock
+        const mockPaymentData = {
+          id: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          amount: amount,
+          status: 'paid', // Simular aprovação imediata para cartão
+          transactionId: `txn_${Date.now()}`,
+          cardLast4: cardDetails.number.slice(-4),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+        };
+
+        res.json(mockPaymentData);
+      } catch (error) {
+        console.error("Error creating AbacatePay card payment:", error);
+        res.status(500).json({ message: "Error creating card payment" });
       }
+    });
 
-      // Para desenvolvimento, criar um pagamento PIX mock
-      const mockPaymentData = {
-        id: `pix_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        qrCode: generateMockQRCodeSVG(),
-        qrCodeText: generateMockPixCode(),
-        amount: amount,
-        status: 'pending',
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes from now
-      };
+    // AbacatePay Boleto payment creation
+    app.post("/api/payment/abacatepay/create-boleto", async (req, res) => {
+      try {
+        const { amount, orderId, customerInfo } = req.body;
 
-      console.log('Mock payment created:', mockPaymentData);
-      res.json(mockPaymentData);
-    } catch (error) {
-      console.error("Error creating AbacatePay PIX payment:", error);
-      res.status(500).json({ message: "Error creating PIX payment" });
-    }
-  });
+        if (!amount || typeof amount !== "number" || amount <= 0) {
+          return res.status(400).json({ message: "Invalid amount" });
+        }
 
-  // AbacatePay Credit Card payment creation
-  app.post("/api/payment/abacatepay/create-card", async (req, res) => {
-    try {
-      const { amount, orderId, customerInfo, cardDetails } = req.body;
+        if (!orderId) {
+          return res.status(400).json({ message: "Order ID is required" });
+        }
 
-      if (!amount || typeof amount !== "number" || amount <= 0) {
-        return res.status(400).json({ message: "Invalid amount" });
+        if (!customerInfo || !customerInfo.name || !customerInfo.email || !customerInfo.document) {
+          return res.status(400).json({ message: "Customer info with document is required for boleto" });
+        }
+
+        // Para desenvolvimento, criar um pagamento de boleto mock
+        const mockPaymentData = {
+          id: `boleto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          qrCode: `data:application/pdf;base64,${Buffer.from('Mock Boleto PDF').toString('base64')}`, // Mock PDF
+          qrCodeText: `34191.79001 01043.510047 91020.150008 1 84770000010000`, // Linha digitável mock
+          amount: amount,
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+        };
+
+        res.json(mockPaymentData);
+      } catch (error) {
+        console.error("Error creating AbacatePay boleto payment:", error);
+        res.status(500).json({ message: "Error creating boleto payment" });
       }
-
-      if (!orderId) {
-        return res.status(400).json({ message: "Order ID is required" });
-      }
-
-      if (!cardDetails || !cardDetails.number || !cardDetails.name || !cardDetails.expiry || !cardDetails.cvc) {
-        return res.status(400).json({ message: "Card details are required" });
-      }
-
-      // Para desenvolvimento, criar um pagamento de cartão mock
-      const mockPaymentData = {
-        id: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        amount: amount,
-        status: 'paid', // Simular aprovação imediata para cartão
-        transactionId: `txn_${Date.now()}`,
-        cardLast4: cardDetails.number.slice(-4),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
-      };
-
-      res.json(mockPaymentData);
-    } catch (error) {
-      console.error("Error creating AbacatePay card payment:", error);
-      res.status(500).json({ message: "Error creating card payment" });
-    }
-  });
-
-  // AbacatePay Boleto payment creation
-  app.post("/api/payment/abacatepay/create-boleto", async (req, res) => {
-    try {
-      const { amount, orderId, customerInfo } = req.body;
-
-      if (!amount || typeof amount !== "number" || amount <= 0) {
-        return res.status(400).json({ message: "Invalid amount" });
-      }
-
-      if (!orderId) {
-        return res.status(400).json({ message: "Order ID is required" });
-      }
-
-      if (!customerInfo || !customerInfo.name || !customerInfo.email || !customerInfo.document) {
-        return res.status(400).json({ message: "Customer info with document is required for boleto" });
-      }
-
-      // Para desenvolvimento, criar um pagamento de boleto mock
-      const mockPaymentData = {
-        id: `boleto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        qrCode: `data:application/pdf;base64,${Buffer.from('Mock Boleto PDF').toString('base64')}`, // Mock PDF
-        qrCodeText: `34191.79001 01043.510047 91020.150008 1 84770000010000`, // Linha digitável mock
-        amount: amount,
-        status: 'pending',
-        expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
-        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-      };
-
-      res.json(mockPaymentData);
-    } catch (error) {
-      console.error("Error creating AbacatePay boleto payment:", error);
-      res.status(500).json({ message: "Error creating boleto payment" });
-    }
-  });
+    });
+  } // End of development-only routes
 
   // Helper functions for mock payment
   function generateMockQRCodeSVG(): string {
@@ -1610,33 +1613,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Webhook do AbacatePay
-  app.post("/api/webhook/abacatepay", async (req, res) => {
-    try {
-      const webhookSecret = req.query.webhookSecret;
+  // Webhook do AbacatePay (DEVELOPMENT ONLY)
+  // Note: In production, this route is handled by /api/webhook/abacatepay.ts
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    app.post("/api/webhook/abacatepay", async (req, res) => {
+      try {
+        const webhookSecret = req.query.webhookSecret;
 
-      if (webhookSecret !== process.env.ABACATEPAY_WEBHOOK_SECRET) {
-        console.error("Invalid webhook secret");
-        return res.status(401).json({ error: "Invalid webhook secret" });
+        if (webhookSecret !== process.env.ABACATEPAY_WEBHOOK_SECRET) {
+          console.error("Invalid webhook secret");
+          return res.status(401).json({ error: "Invalid webhook secret" });
+        }
+
+        // Processa a notificação
+        const event = req.body;
+        console.log("Received AbacatePay webhook:", event);
+
+        // Processar diferentes tipos de eventos
+        if (event.event === "billing.paid") {
+          await storage.handleAbacatePaymentPaid(event.data);
+        } else if (event.event === "billing.failed") {
+          await storage.handleAbacatePaymentFailed(event.data);
+        }
+
+        res.status(200).json({ received: true });
+      } catch (error) {
+        console.error("Error processing AbacatePay webhook:", error);
+        res.status(500).json({ error: "Internal server error" });
       }
-
-      // Processa a notificação
-      const event = req.body;
-      console.log("Received AbacatePay webhook:", event);
-
-      // Processar diferentes tipos de eventos
-      if (event.event === "billing.paid") {
-        await storage.handleAbacatePaymentPaid(event.data);
-      } else if (event.event === "billing.failed") {
-        await storage.handleAbacatePaymentFailed(event.data);
-      }
-
-      res.status(200).json({ received: true });
-    } catch (error) {
-      console.error("Error processing AbacatePay webhook:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+    });
+  }
 
   // Consolidated freight calculation endpoint
   app.post("/api/freight/calculate", freightLimiter, validateRequest(validationSchemas.freight), async (req, res) => {
