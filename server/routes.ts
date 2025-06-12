@@ -722,6 +722,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Debug route to check database schema
+  app.get("/api/debug/schema", async (req, res) => {
+    try {
+      const { supabase } = await import('./supabase');
+
+      if (!supabase) {
+        return res.status(500).json({
+          success: false,
+          error: 'Supabase not configured'
+        });
+      }
+
+      const tables = ['users', 'categories', 'products', 'orders', 'addresses', 'payments', 'cart_items', 'wishlist_items', 'reviews', 'order_items'];
+      const results: any = {};
+
+      for (const tableName of tables) {
+        try {
+          const { data, error } = await supabase
+            .from(tableName)
+            .select('*')
+            .limit(1);
+
+          results[tableName] = {
+            exists: !error,
+            error: error?.message || null,
+            columns: data && data.length > 0 ? Object.keys(data[0]) : [],
+            sampleData: data?.[0] || null,
+            count: data?.length || 0
+          };
+        } catch (tableError) {
+          results[tableName] = {
+            exists: false,
+            error: tableError instanceof Error ? tableError.message : String(tableError),
+            columns: [],
+            sampleData: null,
+            count: 0
+          };
+        }
+      }
+
+      return res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        tables: results
+      });
+
+    } catch (error) {
+      console.error('Debug schema error:', error);
+      return res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Get all users (admin only)
   app.get("/api/users", isAdmin, async (req, res) => {
     try {

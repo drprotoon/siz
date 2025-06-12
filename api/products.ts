@@ -79,8 +79,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       query = query.eq('visible', true);
     }
 
-    // Order by created_at desc
-    query = query.order('created_at', { ascending: false });
+    // Order by createdat desc
+    query = query.order('createdat', { ascending: false });
 
     const { data: products, error } = await query;
 
