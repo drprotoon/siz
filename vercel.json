@@ -1,7 +1,6 @@
 {
   "version": 2,
   "name": "siz-ecommerce",
-  "_comment": "Updated with bundle optimizations - Dec 2024",
   "builds": [
     {
       "src": "server/vercel.ts",
