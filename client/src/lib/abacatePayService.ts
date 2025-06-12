@@ -1,4 +1,4 @@
-import { apiRequest } from "./queryClient";
+// Removed apiRequest import as we now use Supabase Edge Functions directly
 
 /**
  * Interface para dados do cliente
@@ -48,37 +48,33 @@ export async function createAbacatePayment(data: CreateAbacatePaymentData): Prom
   try {
     console.log('Creating AbacatePay payment with data:', data);
 
-    // Try Edge Function first, fallback to Vercel API
+    // Use Supabase Edge Function exclusively
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const useEdgeFunction = supabaseUrl && supabaseUrl !== 'https://your-project.supabase.co';
 
-    let endpoint = '/api/payment'; // Fallback to Vercel API
-
-    if (useEdgeFunction) {
-      endpoint = `${supabaseUrl}/functions/v1/payment`;
+    if (!supabaseUrl) {
+      throw new Error('VITE_SUPABASE_URL not configured. Please configure Supabase environment variables.');
     }
 
-    console.log('Using endpoint:', endpoint);
+    const endpoint = `${supabaseUrl}/functions/v1/payment`;
+    console.log('Using Supabase Edge Function endpoint:', endpoint);
 
-    // Fazer requisição para a API do servidor ou Edge Function
+    // Fazer requisição para a Supabase Edge Function
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(useEdgeFunction && {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        })
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
       },
       body: JSON.stringify(data)
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || errorData.error || "Failed to create payment");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
     }
 
     const paymentResponse = await response.json();
-    console.log('Payment response from server:', paymentResponse);
+    console.log('Payment response from Supabase Edge Function:', paymentResponse);
 
     return paymentResponse;
   } catch (error) {
@@ -94,24 +90,21 @@ export async function createAbacatePayment(data: CreateAbacatePaymentData): Prom
 /**
  * Verificar status do pagamento
  *
- * @param paymentId - ID do pagamento
+ * Note: Payment status is now tracked via webhooks and stored in the database.
+ * This function is kept for compatibility but should be replaced with database queries.
+ *
+ * @param _paymentId - ID do pagamento (unused, kept for compatibility)
  * @returns Status do pagamento
  */
-export async function checkPaymentStatus(paymentId: string): Promise<{ status: string }> {
+export async function checkPaymentStatus(_paymentId: string): Promise<{ status: string }> {
   try {
-    const response = await apiRequest(
-      "GET",
-      `/api/payment/abacatepay/status/${paymentId}`
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to check payment status");
-    }
-
-    return await response.json();
+    // Payment status is now tracked via webhooks in the Supabase database
+    // This function should be replaced with a direct database query or
+    // a new Supabase Edge Function if real-time status checking is needed
+    throw new Error("Payment status checking has been migrated to webhook-based updates. Check the payments table in the database for current status.");
   } catch (error) {
     console.error("Error checking payment status:", error);
-    throw new Error("Failed to check payment status. Please try again.");
+    throw new Error("Payment status is now tracked via webhooks. Please check the order status instead.");
   }
 }
 

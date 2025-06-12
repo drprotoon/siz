@@ -85,8 +85,8 @@ export default async function handler(req: AuthenticatedRequest, res: VercelResp
           quantity: item.quantity,
           product: {
             ...item.products,
-            images: Array.isArray(item.products.images) ? item.products.images : 
-                   item.products.images ? [item.products.images] : []
+            images: Array.isArray((item.products as any).images) ? (item.products as any).images :
+                   (item.products as any).images ? [(item.products as any).images] : []
           }
         })) || [];
 

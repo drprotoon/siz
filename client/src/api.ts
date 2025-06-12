@@ -194,11 +194,33 @@ export const healthAPI = {
     api.get('/health')
 };
 
-// AbacatePay API
+// AbacatePay API - Using Supabase Edge Functions
 export const abacatePayAPI = {
-  createPayment: (data: { amount: number; orderId: number; customerInfo?: any; paymentMethod: 'pix' | 'credit_card' | 'boleto'; cardDetails?: any }) =>
-    api.post('/payment', data),
+  createPayment: async (data: { amount: number; orderId: number; customerInfo?: any; paymentMethod: 'pix' | 'credit_card' | 'boleto'; cardDetails?: any }) => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error('VITE_SUPABASE_URL not configured');
+    }
 
-  checkPaymentStatus: (paymentId: string) =>
-    api.get(`/payment/status/${paymentId}`)
+    const response = await fetch(`${supabaseUrl}/functions/v1/payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Payment creation failed: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  checkPaymentStatus: async (_paymentId: string) => {
+    // This would need to be implemented as a separate Edge Function if needed
+    // For now, payment status is tracked via webhooks in the database
+    throw new Error('Payment status checking not implemented - status is updated via webhooks');
+  }
 };

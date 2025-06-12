@@ -7,26 +7,36 @@ Esta documentação explica como usar a integração do AbacatePay para pagament
 A URL do webhook para configurar no painel do AbacatePay é:
 
 ```
-https://siz-cosmetic-store-pro.vercel.app/api/webhook/abacatepay?webhookSecret=SUA_CHAVE_SECRETA
+https://seu-projeto.supabase.co/functions/v1/webhook-abacatepay
 ```
 
-**Importante:** Substitua `SUA_CHAVE_SECRETA` pela chave secreta configurada na variável de ambiente `ABACATEPAY_WEBHOOK_SECRET`.
+**Importante:** Substitua `seu-projeto` pelo ID do seu projeto Supabase. A validação do webhook é feita através da variável de ambiente `ABACATEPAY_WEBHOOK_SECRET` configurada no Supabase.
 
 ## Configuração das Variáveis de Ambiente
 
-### No painel da Vercel, configure as seguintes variáveis:
+### No painel do Supabase (Edge Functions), configure as seguintes variáveis:
 
 1. **ABACATEPAY_API_KEY**: Sua chave de API do AbacatePay
 2. **ABACATEPAY_API_URL**: URL da API (padrão: `https://api.abacatepay.com`)
 3. **ABACATEPAY_WEBHOOK_SECRET**: Chave secreta para validar webhooks
-4. **WEBHOOK_BASE_URL**: URL base do seu site (ex: `https://siz-cosmetic-store-pro.vercel.app`)
+
+### No frontend (.env), configure:
+4. **VITE_SUPABASE_URL**: URL do seu projeto Supabase
+5. **VITE_SUPABASE_ANON_KEY**: Chave anônima do Supabase
 
 ### Exemplo de configuração:
+
+**Supabase Edge Functions:**
 ```env
 ABACATEPAY_API_KEY=abacate_live_xxxxxxxxxxxxxxxx
 ABACATEPAY_API_URL=https://api.abacatepay.com
 ABACATEPAY_WEBHOOK_SECRET=minha-chave-secreta-super-segura
-WEBHOOK_BASE_URL=https://siz-cosmetic-store-pro.vercel.app/api/webhook/abacatepay
+```
+
+**Frontend (.env):**
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua_chave_anonima
 ```
 
 ## Como Usar os Componentes
@@ -178,16 +188,23 @@ Disparado quando o pagamento falha.
 }
 ```
 
-## Endpoints da API
+## Endpoints da API (Supabase Edge Functions)
 
-### POST /api/payment/abacatepay/create
-Cria um novo pagamento PIX.
+### POST /functions/v1/payment
+Cria um novo pagamento PIX, cartão de crédito ou boleto via Supabase Edge Function.
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer YOUR_SUPABASE_ANON_KEY
+```
 
 **Body:**
 ```json
 {
   "amount": 100.50,
   "orderId": 12345,
+  "paymentMethod": "pix",
   "customerInfo": {
     "name": "João Silva",
     "email": "joao@email.com"
@@ -199,29 +216,21 @@ Cria um novo pagamento PIX.
 ```json
 {
   "id": "pix_char_xxxxxxxx",
-  "qrCode": "data:image/png;base64,...",
-  "qrCodeText": "00020126580014br.gov.bcb.pix...",
   "amount": 100.50,
   "status": "pending",
+  "paymentMethod": "pix",
+  "qrCode": "data:image/png;base64,...",
+  "qrCodeText": "00020126580014br.gov.bcb.pix...",
   "expiresAt": "2024-01-01T12:00:00Z"
 }
 ```
 
-### GET /api/payment/abacatepay/status/:paymentId
-Verifica o status de um pagamento.
+### POST /functions/v1/webhook-abacatepay
+Endpoint para receber webhooks do AbacatePay via Supabase Edge Function.
 
-**Response:**
-```json
-{
-  "status": "paid"
-}
-```
+**Validação:** Webhook secret é validado automaticamente através das variáveis de ambiente do Supabase.
 
-### POST /api/webhook/abacatepay
-Endpoint para receber webhooks do AbacatePay.
-
-**Query Parameters:**
-- `webhookSecret`: Chave secreta para validação
+**Nota:** O status do pagamento é atualizado automaticamente no banco de dados quando o webhook é recebido.
 
 ## Segurança
 

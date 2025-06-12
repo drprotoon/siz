@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Verificar se as tabelas existem
-    let databaseInfo = null;
+    let databaseInfo: any = null;
     try {
       const tablesResult = await db.execute(sql`
         SELECT table_name
@@ -58,7 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (tables.includes(tableName)) {
           try {
             const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM "${tableName}"`));
-            tableCounts[tableName] = parseInt(countResult.rows[0]?.count || '0');
+            tableCounts[tableName] = parseInt(String(countResult.rows[0]?.count || '0'));
           } catch (error) {
             tableCounts[tableName] = -1; // Erro ao contar
           }
@@ -73,10 +73,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tableCounts: tableCounts,
         totalTables: tables.length
       };
-    } catch (dbError) {
+    } catch (dbError: any) {
       databaseInfo = {
         connected: false,
-        error: dbError.message
+        error: dbError?.message || 'Unknown database error'
       };
     }
 
@@ -104,12 +104,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message: 'Debug endpoint working',
       ...debugInfo
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Debug endpoint error:', error);
 
     res.status(500).json({
       message: 'Debug endpoint error',
-      error: error.message,
+      error: error?.message || 'Unknown error',
       timestamp: new Date().toISOString(),
       environment: {
         NODE_ENV: process.env.NODE_ENV,
