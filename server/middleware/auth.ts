@@ -171,7 +171,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
       }
     } catch (jwtError) {
       // Token invalid or expired, but don't fail the request
-      console.log('Optional auth failed:', jwtError.message);
+      console.log('Optional auth failed:', (jwtError as Error).message);
     }
 
     next();
@@ -302,7 +302,7 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
     ].filter(Boolean);
 
     const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
+    if (origin && allowedOrigins.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
     }
 

@@ -54,22 +54,48 @@ export default function Login() {
   // Handle login mutation
   const loginMutation = useMutation({
     mutationFn: async (values: z.infer<typeof loginSchema>) => {
-      return apiRequest("POST", "/api/auth/login", values);
+      // Use JWT login endpoint for better token management
+      const response = await fetch("/api/auth/login-jwt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Login failed");
+      }
+
+      return response.json();
     },
     onSuccess: async (data) => {
       try {
-        // Aguardar a resposta JSON para garantir que temos os dados do usuário
-        const userData = await data.json();
+        console.log("Login successful:", data);
 
-        // Invalidate queries AFTER we have the user data
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+        // Store user and token in AuthContext
+        if (data.user && data.token) {
+          // Use the AuthContext login function to properly store user and token
+          login(data.user, data.token);
 
-        toast({
-          title: "Login bem-sucedido",
-          description: "Você foi autenticado com sucesso.",
-          variant: "default",
-        });
+          // Add a small delay to ensure token is stored before invalidating queries
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Verify token is stored before proceeding
+          const storedToken = localStorage.getItem('authToken');
+          console.log('Token verification before query invalidation:', !!storedToken);
+
+          // Invalidate queries AFTER we have the user data and token is stored
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+
+          toast({
+            title: "Login bem-sucedido",
+            description: `Bem-vindo, ${data.user.username}!`,
+            variant: "default",
+          });
 
         // Verificar se há dados pendentes no sessionStorage
         const redirectAfterLogin = sessionStorage.getItem('redirectAfterLogin');
@@ -77,57 +103,66 @@ export default function Login() {
         const pendingProductQuantity = sessionStorage.getItem('pendingProductQuantity');
         const pendingShipping = sessionStorage.getItem('pendingShipping');
 
-        // Se houver um produto pendente, adicionar ao carrinho
-        if (pendingProductId && pendingProductQuantity) {
-          try {
-            // Adicionar o produto ao carrinho
-            await apiRequest("POST", "/api/cart", {
-              productId: parseInt(pendingProductId),
-              quantity: parseInt(pendingProductQuantity)
-            });
+          // Se houver um produto pendente, adicionar ao carrinho
+          if (pendingProductId && pendingProductQuantity) {
+            try {
+              // Adicionar o produto ao carrinho usando o token
+              await fetch('/api/cart', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${data.token}`
+                },
+                body: JSON.stringify({
+                  productId: parseInt(pendingProductId),
+                  quantity: parseInt(pendingProductQuantity)
+                }),
+                credentials: 'include',
+              });
 
-            // Invalidar a query do carrinho para atualizar os dados
-            queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+              // Invalidar a query do carrinho para atualizar os dados
+              queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
 
-            // Limpar os dados pendentes
-            sessionStorage.removeItem('pendingProductId');
-            sessionStorage.removeItem('pendingProductQuantity');
+              // Limpar os dados pendentes
+              sessionStorage.removeItem('pendingProductId');
+              sessionStorage.removeItem('pendingProductQuantity');
 
-            // Mostrar mensagem de sucesso
+              // Mostrar mensagem de sucesso
+              toast({
+                title: "Produto adicionado ao carrinho",
+                description: "O produto foi adicionado ao seu carrinho.",
+                variant: "default",
+              });
+            } catch (error) {
+              console.error("Erro ao adicionar produto pendente ao carrinho:", error);
+            }
+          }
+
+          // Determinar para onde redirecionar
+          let redirectTo = "/";
+
+          if (checkoutRedirectUrl) {
+            // Limpar o redirecionamento pendente
+            setCheckoutRedirectUrl(null);
+            redirectTo = checkoutRedirectUrl;
+
             toast({
-              title: "Produto adicionado ao carrinho",
-              description: "O produto foi adicionado ao seu carrinho.",
+              title: "Login realizado com sucesso",
+              description: "Continuando para finalizar sua compra.",
               variant: "default",
             });
-          } catch (error) {
-            console.error("Erro ao adicionar produto pendente ao carrinho:", error);
+          } else if (redirectAfterLogin) {
+            // Limpar o redirecionamento pendente
+            sessionStorage.removeItem('redirectAfterLogin');
+            redirectTo = redirectAfterLogin;
+          } else if (data.user && data.user.role === "admin") {
+            redirectTo = "/admin";
           }
+
+          // Usar navigate para redirecionar
+          console.log('Redirecionando para:', redirectTo);
+          navigate(redirectTo);
         }
-
-        // Determinar para onde redirecionar após o refresh
-        let redirectTo = "/";
-
-        if (checkoutRedirectUrl) {
-          // Limpar o redirecionamento pendente
-          setCheckoutRedirectUrl(null);
-          redirectTo = checkoutRedirectUrl;
-
-          toast({
-            title: "Login realizado com sucesso",
-            description: "Continuando para finalizar sua compra.",
-            variant: "default",
-          });
-        } else if (redirectAfterLogin) {
-          // Limpar o redirecionamento pendente
-          sessionStorage.removeItem('redirectAfterLogin');
-          redirectTo = redirectAfterLogin;
-        } else if (userData.user && userData.user.role === "admin") {
-          redirectTo = "/admin";
-        }
-
-        // Usar navigate em vez de window.location.href para evitar problemas
-        console.log('Redirecionando para:', redirectTo);
-        navigate(redirectTo);
       } catch (error) {
         console.error("Erro ao processar resposta de login:", error);
         // Em caso de erro ao processar o JSON, redireciona para a home

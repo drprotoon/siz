@@ -292,21 +292,21 @@ export const rateLimitConfig = {
   // General API rate limit
   general: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 200, // limit each IP to 100 requests per windowMs
     message: 'Muitas requisições, tente novamente em 15 minutos'
   },
 
   // Auth endpoints (more restrictive)
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'development' ? 50 : 5, // More permissive in development
+    max: process.env.NODE_ENV === 'development' ? 50 : 80, // More permissive in development
     message: 'Muitas tentativas de login, tente novamente em 15 minutos'
   },
 
   // Freight calculation (moderate)
   freight: {
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 10, // limit each IP to 10 requests per minute
+    max: 50, // limit each IP to 10 requests per minute
     message: 'Muitas consultas de frete, tente novamente em 1 minuto'
   }
 };

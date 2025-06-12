@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -19,11 +19,14 @@ import { useUserAddress, useUserProfile } from '@/hooks/use-user-data';
 import { useShipping } from '@/contexts/ShippingContext';
 import { useCart } from '@/contexts/CartContext';
 import { PixCheckout } from '@/components/checkout/PixCheckout';
+import { CreditCardCheckout } from '@/components/checkout/CreditCardCheckout';
+import { BoletoCheckout } from '@/components/checkout/BoletoCheckout';
 import {
   type CustomerInfo,
   createAbacatePayment,
   generateQRCodeImage,
-  type CreateAbacatePaymentData
+  type CreateAbacatePaymentData,
+  type AbacatePaymentResponse
 } from '@/lib/abacatePayService';
 import { type FrenetShippingService } from '@/lib/frenetService';
 // Frenet integrado ao freight-client
@@ -33,7 +36,7 @@ import { type FrenetShippingService } from '@/lib/frenetService';
 
 export default function CheckoutPage() {
   const [, navigate] = useLocation();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, setCheckoutRedirectUrl } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('shipping');
   const { selectedShipping, setSelectedShipping } = useShipping() as {
@@ -43,16 +46,25 @@ export default function CheckoutPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('pix'); // PIX como padrão
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   const [showPixCheckout, setShowPixCheckout] = useState(false);
+  const [showCreditCardCheckout, setShowCreditCardCheckout] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
   const [pixPaymentData, setPixPaymentData] = useState<any>(null);
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
   const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
+  const [showBoletoCheckout, setShowBoletoCheckout] = useState(false);
 
   // CEP do vendedor (loja) - Deve ser configurado de acordo com o endereço da loja
   const SELLER_CEP = "74591-990"; // Exemplo: CEP da Av. Paulista em São Paulo
 
-  // Não fazer verificação redundante de autenticação aqui
-  // A verificação já é feita no App.tsx nas rotas protegidas
+  // Verificar autenticação e redirecionar para login se necessário
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log('Checkout: Usuário não autenticado, redirecionando para login');
+      setCheckoutRedirectUrl('/checkout');
+      navigate('/login');
+      return;
+    }
+  }, [isAuthenticated, navigate, setCheckoutRedirectUrl]);
 
   // Usar o contexto do carrinho em vez de fazer requisições ao servidor
   const { cartItems, isLoading: isCartLoading, subtotal: cartSubtotal, clearCart } = useCart();
@@ -411,7 +423,10 @@ export default function CheckoutPage() {
         // Preparar dados do pedido
         const orderData: any = {
           items: orderItems,
-          payment: selectedPaymentMethod,
+          payment: {
+            method: selectedPaymentMethod,
+            status: 'pending'
+          },
           subtotal: calculateSubtotal(),
           shippingCost: selectedShipping ? selectedShipping.ShippingPrice : 0,
           total: total
@@ -438,6 +453,90 @@ export default function CheckoutPage() {
 
         setCurrentOrderId(order.id);
         setShowPixCheckout(true);
+
+      } else if (selectedPaymentMethod === 'credit_card') {
+        // Para cartão de crédito, criar pedido primeiro e depois mostrar checkout de cartão
+        const orderItems = cartItems.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price
+        }));
+
+        // Preparar dados do pedido
+        const orderData: any = {
+          items: orderItems,
+          payment: {
+            method: selectedPaymentMethod,
+            status: 'pending'
+          },
+          subtotal: calculateSubtotal(),
+          shippingCost: selectedShipping ? selectedShipping.ShippingPrice : 0,
+          total: total
+        };
+
+        // Adicionar endereço se disponível
+        if (addressData) {
+          orderData.shippingAddress = addressData.street || '';
+          orderData.shippingCity = addressData.city || '';
+          orderData.shippingState = addressData.state || '';
+          orderData.shippingPostalCode = addressData.postalCode || '';
+          orderData.shippingCountry = addressData.country || 'Brasil';
+        }
+
+        // Adicionar método de envio se disponível
+        if (selectedShipping) {
+          orderData.shippingMethod = `${selectedShipping.Carrier} - ${selectedShipping.ServiceDescription}`;
+          orderData.shippingCost = selectedShipping.ShippingPrice;
+        }
+
+        // Criar pedido
+        const response = await apiRequest('POST', '/api/orders', orderData);
+        const order = await response.json();
+
+        setCurrentOrderId(order.id);
+        setShowCreditCardCheckout(true);
+
+      } else if (selectedPaymentMethod === 'boleto') {
+        // Para boleto, criar pedido primeiro e depois mostrar checkout de boleto
+        const orderItems = cartItems.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price
+        }));
+
+        // Preparar dados do pedido
+        const orderData: any = {
+          items: orderItems,
+          payment: {
+            method: selectedPaymentMethod,
+            status: 'pending'
+          },
+          subtotal: calculateSubtotal(),
+          shippingCost: selectedShipping ? selectedShipping.ShippingPrice : 0,
+          total: total
+        };
+
+        // Adicionar endereço se disponível
+        if (addressData) {
+          orderData.shippingAddress = addressData.street || '';
+          orderData.shippingCity = addressData.city || '';
+          orderData.shippingState = addressData.state || '';
+          orderData.shippingPostalCode = addressData.postalCode || '';
+          orderData.shippingCountry = addressData.country || 'Brasil';
+        }
+
+        // Adicionar método de envio se disponível
+        if (selectedShipping) {
+          orderData.shippingMethod = `${selectedShipping.Carrier} - ${selectedShipping.ServiceDescription}`;
+          orderData.shippingCost = selectedShipping.ShippingPrice;
+        }
+
+        // Criar pedido
+        const response = await apiRequest('POST', '/api/orders', orderData);
+        const order = await response.json();
+
+        setCurrentOrderId(order.id);
+        setShowBoletoCheckout(true);
 
       } else {
         // Processar outros métodos de pagamento (simulado)
@@ -525,6 +624,58 @@ export default function CheckoutPage() {
     setCurrentOrderId(null);
   };
 
+  // Handle credit card payment success
+  const handleCreditCardPaymentSuccess = (paymentData: AbacatePaymentResponse) => {
+    // Limpar carrinho usando o contexto
+    clearCart();
+
+    // Limpar dados de frete
+    clearShipping();
+
+    // Redirecionar para página de confirmação
+    if (currentOrderId) {
+      navigate(`/order-confirmation/${currentOrderId}`);
+    }
+
+    toast({
+      title: 'Pagamento aprovado!',
+      description: 'Seu cartão foi processado com sucesso.',
+      variant: 'default'
+    });
+  };
+
+  // Handle boleto payment success
+  const handleBoletoPaymentSuccess = (paymentData: AbacatePaymentResponse) => {
+    // Limpar carrinho usando o contexto
+    clearCart();
+
+    // Limpar dados de frete
+    clearShipping();
+
+    // Redirecionar para página de confirmação
+    if (currentOrderId) {
+      navigate(`/order-confirmation/${currentOrderId}`);
+    }
+
+    toast({
+      title: 'Boleto gerado com sucesso!',
+      description: 'Você pode baixar o boleto e pagar até a data de vencimento.',
+      variant: 'default'
+    });
+  };
+
+  // Handle credit card payment cancel
+  const handleCreditCardPaymentCancel = () => {
+    setShowCreditCardCheckout(false);
+    setCurrentOrderId(null);
+  };
+
+  // Handle boleto payment cancel
+  const handleBoletoPaymentCancel = () => {
+    setShowBoletoCheckout(false);
+    setCurrentOrderId(null);
+  };
+
   // Loading state
   if (isCartLoading || isAddressLoading || isProfileLoading) {
     return (
@@ -602,6 +753,94 @@ export default function CheckoutPage() {
               setShowPixCheckout(false);
             }}
             onCancel={handlePixPaymentCancel}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Se estiver mostrando checkout de cartão, renderizar apenas o componente de cartão
+  if (showCreditCardCheckout && currentOrderId) {
+    const customerInfo: CustomerInfo = {
+      name: userProfile?.name || user?.username || '',
+      email: userProfile?.email || user?.email || '',
+      phone: userProfile?.phone || undefined
+    };
+
+    return (
+      <div className="max-w-6xl mx-auto py-8">
+        <div className="flex items-center mb-8">
+          <Button
+            variant="ghost"
+            onClick={handleCreditCardPaymentCancel}
+            className="mr-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+          <h1 className="text-3xl font-bold">Pagamento com Cartão</h1>
+        </div>
+
+        <div className="flex justify-center">
+          <CreditCardCheckout
+            amount={total}
+            orderId={currentOrderId}
+            customerInfo={customerInfo}
+            onPaymentSuccess={handleCreditCardPaymentSuccess}
+            onPaymentError={(error) => {
+              console.error('Payment error:', error);
+              toast({
+                title: 'Erro no pagamento',
+                description: error,
+                variant: 'destructive'
+              });
+              setShowCreditCardCheckout(false);
+            }}
+            onCancel={handleCreditCardPaymentCancel}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Se estiver mostrando checkout de boleto, renderizar apenas o componente de boleto
+  if (showBoletoCheckout && currentOrderId) {
+    const customerInfo: CustomerInfo = {
+      name: userProfile?.name || user?.username || '',
+      email: userProfile?.email || user?.email || '',
+      phone: userProfile?.phone || undefined
+    };
+
+    return (
+      <div className="max-w-6xl mx-auto py-8">
+        <div className="flex items-center mb-8">
+          <Button
+            variant="ghost"
+            onClick={handleBoletoPaymentCancel}
+            className="mr-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+          <h1 className="text-3xl font-bold">Pagamento com Boleto</h1>
+        </div>
+
+        <div className="flex justify-center">
+          <BoletoCheckout
+            amount={total}
+            orderId={currentOrderId}
+            customerInfo={customerInfo}
+            onPaymentSuccess={handleBoletoPaymentSuccess}
+            onPaymentError={(error) => {
+              console.error('Payment error:', error);
+              toast({
+                title: 'Erro no pagamento',
+                description: error,
+                variant: 'destructive'
+              });
+              setShowBoletoCheckout(false);
+            }}
+            onCancel={handleBoletoPaymentCancel}
           />
         </div>
       </div>

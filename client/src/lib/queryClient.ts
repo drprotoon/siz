@@ -54,6 +54,12 @@ export async function apiRequest(
       ...customHeaders
     };
 
+    // Adicionar token JWT se disponível
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     // Construir a URL completa
     const fullUrl = url.startsWith('http')
       ? url
@@ -114,10 +120,17 @@ export const getQueryFn: <T>(options: {
 
     console.log(`Making query request to: ${finalUrl}`);
 
+    // Adicionar token JWT aos headers se disponível
+    const headers: Record<string, string> = { ...customHeaders };
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     // Fazer a requisição
     const res = await fetch(finalUrl, {
       credentials: "include",
-      headers: customHeaders,
+      headers,
       signal,
     });
 
@@ -165,13 +178,20 @@ export const getUserQueryFn: <T>(options: {
 
     console.log(`Making user query request to: ${url}`);
 
+    // Adicionar token JWT aos headers se disponível
+    const headers: Record<string, string> = {
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache"
+    };
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     // Fazer a requisição
     const res = await fetch(url, {
       credentials: "include",
-      headers: {
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache"
-      }
+      headers
     });
 
     // Tratar erros de autenticação

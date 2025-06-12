@@ -112,13 +112,13 @@ export default function new_arrivals() {
                 name={product.name}
                 slug={product.slug}
                 price={product.price}
-                compareatprice={product.compareatprice}
+                compareAtPrice={product.compareatprice}
                 categoryName={product.category?.name || "Uncategorized"}
                 rating={product.rating}
-                reviewcount={product.reviewcount || 0}
+                reviewCount={product.reviewcount || 0}
                 mainImage={product.images?.[0] || "https://placehold.co/400x400?text=No+Image"}
-                best_seller={product.best_seller}
-                new_arrival={product.new_arrival}
+                bestSeller={product.best_seller}
+                newArrival={product.new_arrival}
               />
             </div>
           ))

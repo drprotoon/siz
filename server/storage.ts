@@ -1933,7 +1933,7 @@ export class DatabaseStorage implements IStorage {
           })
           .returning();
 
-        return newAddress[0];
+        return newAddress[0] as any;
       }
     } catch (error) {
       console.error('Error saving user address:', error);

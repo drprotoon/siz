@@ -9,6 +9,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Truck, AlertCircle, MapPin, LogIn, Clock } from 'lucide-react';
 import { formatPostalCode, isValidPostalCode, formatCurrency } from '@/lib/utils';
 import PostalCodeLookup from '@/components/PostalCodeLookup';
+import type { FrenetAddressResponse } from '@/lib/frenetService';
 import AddressForm from '@/components/AddressForm';
 import AuthForm from '@/components/AuthForm';
 // Frenet integrado ao freight-client

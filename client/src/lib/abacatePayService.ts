@@ -29,33 +29,59 @@ export interface CreateAbacatePaymentData {
   amount: number;
   orderId: number;
   customerInfo?: CustomerInfo;
+  paymentMethod?: 'pix' | 'credit_card' | 'boleto';
+  cardDetails?: {
+    number: string;
+    name: string;
+    expiry: string;
+    cvc: string;
+  };
 }
 
 /**
- * Criar um pagamento PIX via AbacatePay
+ * Criar um pagamento via AbacatePay (PIX, Cartão ou Boleto)
  *
  * @param data - Dados do pagamento
  * @returns AbacatePaymentResponse
  */
 export async function createAbacatePayment(data: CreateAbacatePaymentData): Promise<AbacatePaymentResponse> {
   try {
-    const response = await apiRequest(
-      "POST",
-      "/api/payment/abacatepay/create",
-      data
-    );
+    console.log('Creating AbacatePay payment with data:', data);
+
+    // Determinar endpoint baseado no método de pagamento
+    const endpoint = data.paymentMethod === 'credit_card'
+      ? '/api/payment/abacatepay/create-card'
+      : data.paymentMethod === 'boleto'
+      ? '/api/payment/abacatepay/create-boleto'
+      : '/api/payment/abacatepay/create';
+
+    // Fazer requisição para a API do servidor
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
 
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to create payment");
     }
 
-    return await response.json();
+    const paymentResponse = await response.json();
+    console.log('Payment response from server:', paymentResponse);
+
+    return paymentResponse;
   } catch (error) {
     console.error("Error creating AbacatePay payment:", error);
-    throw new Error("Failed to create PIX payment. Please try again.");
+    const paymentType = data.paymentMethod === 'credit_card' ? 'cartão' :
+                       data.paymentMethod === 'boleto' ? 'boleto' : 'PIX';
+    throw new Error(`Failed to create ${paymentType} payment. Please try again.`);
   }
 }
+
+
 
 /**
  * Verificar status do pagamento
@@ -197,13 +223,43 @@ export function calculateTimeRemaining(expiresAt: string): {
   const now = new Date().getTime();
   const expiration = new Date(expiresAt).getTime();
   const difference = expiration - now;
-  
+
   if (difference <= 0) {
     return { minutes: 0, seconds: 0, expired: true };
   }
-  
+
   const minutes = Math.floor(difference / (1000 * 60));
   const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-  
+
   return { minutes, seconds, expired: false };
+}
+
+/**
+ * Criar pagamento com cartão de crédito via AbacatePay
+ *
+ * @param data - Dados do pagamento com cartão
+ * @returns AbacatePaymentResponse
+ */
+export async function createCreditCardPayment(data: CreateAbacatePaymentData): Promise<AbacatePaymentResponse> {
+  return createAbacatePayment({ ...data, paymentMethod: 'credit_card' });
+}
+
+/**
+ * Criar pagamento com boleto via AbacatePay
+ *
+ * @param data - Dados do pagamento com boleto
+ * @returns AbacatePaymentResponse
+ */
+export async function createBoletoPayment(data: CreateAbacatePaymentData): Promise<AbacatePaymentResponse> {
+  return createAbacatePayment({ ...data, paymentMethod: 'boleto' });
+}
+
+/**
+ * Criar pagamento PIX via AbacatePay
+ *
+ * @param data - Dados do pagamento PIX
+ * @returns AbacatePaymentResponse
+ */
+export async function createPixPayment(data: CreateAbacatePaymentData): Promise<AbacatePaymentResponse> {
+  return createAbacatePayment({ ...data, paymentMethod: 'pix' });
 }

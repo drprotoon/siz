@@ -69,9 +69,56 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     return `cart_${productId}_${Date.now()}`;
   };
 
-  // Carregar o carrinho do localStorage na inicialização
+  // Carregar o carrinho (do servidor se autenticado, senão do localStorage)
   useEffect(() => {
-    const loadCart = () => {
+    const loadCart = async () => {
+      try {
+        if (isAuthenticated && user) {
+          // Se autenticado, carregar do servidor
+          console.log('Usuário autenticado, carregando carrinho do servidor...');
+          try {
+            const response = await apiRequest('GET', '/api/cart');
+            if (response.ok) {
+              const serverCartItems = await response.json();
+              console.log('Carrinho carregado do servidor:', serverCartItems);
+
+              // Converter formato do servidor para formato do contexto
+              const convertedItems: CartItem[] = serverCartItems.map((item: any) => ({
+                id: item.id.toString(),
+                productId: item.productId,
+                quantity: item.quantity,
+                product: {
+                  id: item.product.id,
+                  name: item.product.name,
+                  price: item.product.price,
+                  images: item.product.images || [],
+                  weight: item.product.weight,
+                  height: item.product.height,
+                  width: item.product.width,
+                  length: item.product.length,
+                  sku: item.product.sku
+                }
+              }));
+
+              setCartItems(convertedItems);
+            } else {
+              console.log('Erro ao carregar carrinho do servidor, usando localStorage');
+              loadFromLocalStorage();
+            }
+          } catch (error) {
+            console.error('Erro ao carregar carrinho do servidor:', error);
+            loadFromLocalStorage();
+          }
+        } else {
+          // Se não autenticado, carregar do localStorage
+          loadFromLocalStorage();
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const loadFromLocalStorage = () => {
       try {
         const savedCart = localStorage.getItem('cart');
         if (savedCart) {
@@ -80,24 +127,24 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
           console.log('Carrinho carregado do localStorage:', parsedCart);
         } else {
           console.log('Nenhum carrinho encontrado no localStorage');
+          setCartItems([]);
         }
       } catch (error) {
         console.error('Erro ao carregar carrinho do localStorage:', error);
-      } finally {
-        setIsLoading(false);
+        setCartItems([]);
       }
     };
 
     loadCart();
-  }, []);
+  }, [isAuthenticated, user]);
 
-  // Salvar o carrinho no localStorage sempre que ele mudar
+  // Salvar o carrinho no localStorage apenas se não estiver autenticado
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !isAuthenticated) {
       localStorage.setItem('cart', JSON.stringify(cartItems));
       console.log('Carrinho salvo no localStorage:', cartItems);
     }
-  }, [cartItems, isLoading]);
+  }, [cartItems, isLoading, isAuthenticated]);
 
   // Adicionar um produto ao carrinho
   const addToCart = (product: CartProduct, quantity: number) => {

@@ -1,6 +1,7 @@
 // Frenet integrado ao freight-client
 import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, Home } from 'lucide-react';
+import type { FrenetAddressResponse } from '@/lib/frenetService';
 
 interface AddressDisplayProps {
   address: FrenetAddressResponse;

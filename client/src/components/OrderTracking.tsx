@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 // Frenet integrado ao freight-client
 import { Package, Truck, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { trackShipment, type FrenetTrackingEvent, type FrenetTrackingRequest } from '@/lib/frenetService';
 
 interface OrderTrackingProps {
   initialTrackingNumber?: string;

@@ -493,43 +493,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("JWT Login attempt:", req.body.username);
 
-      const user = await storage.getUserByUsername(req.body.username);
+      // Buscar usuário por username ou email
+      let user = await storage.getUserByUsername(req.body.username);
       if (!user) {
-        console.log("User not found:", req.body.username);
-        return res.status(401).json({ message: "Invalid credentials" });
+        // Tentar buscar por email se não encontrou por username
+        user = await storage.getUserByEmail(req.body.username);
       }
 
+      if (!user) {
+        console.log("User not found:", req.body.username);
+        return res.status(401).json({ message: "Credenciais inválidas" });
+      }
+
+      // Verificar se a senha está correta
       const isValidPassword = await bcrypt.compare(req.body.password, user.password);
       if (!isValidPassword) {
         console.log("Invalid password for user:", req.body.username);
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: "Credenciais inválidas" });
       }
 
       // Generate JWT token
       if (!process.env.JWT_SECRET) {
         console.error("JWT_SECRET not configured");
-        return res.status(500).json({ message: "Server configuration error" });
+        return res.status(500).json({ message: "Erro de configuração do servidor" });
       }
 
       const token = jwt.sign(
         {
+          userId: user.id, // Usar userId para compatibilidade com o middleware
           id: user.id,
           username: user.username,
           email: user.email || '',
           role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: '24h' }
+        {
+          expiresIn: '7d', // Token válido por 7 dias
+          issuer: 'siz-cosmeticos',
+          audience: 'siz-users'
+        }
       );
 
       console.log("JWT login successful for user:", user.username, "role:", user.role);
 
       res.json({
-        message: "Login successful",
+        message: "Login realizado com sucesso",
         token,
         user: {
           id: user.id,
           username: user.username,
+          email: user.email || '',
+          name: user.full_name || user.name || user.username,
           role: user.role,
           timestamp: new Date().getTime()
         }
@@ -587,22 +601,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/me", (req, res) => {
+  app.get("/api/auth/me", async (req, res) => {
     console.log("Auth check request received");
-    console.log("Is authenticated:", req.isAuthenticated());
 
-    if (req.isAuthenticated() && req.user) {
-      // Adicionar timestamp para evitar problemas de cache
-      const userResponse = {
-        ...req.user,
-        timestamp: new Date().getTime()
-      };
+    try {
+      // Verificar se há token JWT no header Authorization
+      const authHeader = req.headers.authorization;
+      let token = null;
 
-      console.log("Sending authenticated user:", userResponse);
-      res.json({ user: userResponse });
-    } else {
-      console.log("User not authenticated");
-      res.status(401).json({ message: "Not authenticated" });
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+
+      // Se não há token no header, verificar cookies
+      if (!token && req.headers.cookie) {
+        const cookies = req.headers.cookie.split(';').reduce((acc, cookie) => {
+          const [key, value] = cookie.trim().split('=');
+          acc[key] = value;
+          return acc;
+        }, {} as Record<string, string>);
+
+        token = cookies.authToken || cookies.token;
+      }
+
+      // Se não há token, verificar autenticação por sessão (fallback)
+      if (!token) {
+        if (req.isAuthenticated() && req.user) {
+          const userResponse = {
+            ...req.user,
+            timestamp: new Date().getTime()
+          };
+          console.log("Sending session authenticated user:", userResponse);
+          return res.json({ user: userResponse });
+        } else {
+          console.log("No token and not session authenticated");
+          return res.status(401).json({ message: "Não autenticado" });
+        }
+      }
+
+      // Verificar e decodificar o token JWT
+      if (!process.env.JWT_SECRET) {
+        console.error("JWT_SECRET not configured");
+        return res.status(500).json({ message: "Erro de configuração do servidor" });
+      }
+
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+
+        if (!decoded.userId) {
+          return res.status(401).json({ message: "Token inválido" });
+        }
+
+        // Buscar dados atualizados do usuário no banco
+        const user = await storage.getUser(decoded.userId);
+
+        if (!user) {
+          return res.status(401).json({ message: "Usuário não encontrado" });
+        }
+
+        // Retornar dados do usuário no formato esperado pelo frontend
+        const userResponse = {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          name: user.full_name || user.name || user.username,
+          role: user.role,
+          timestamp: new Date().getTime()
+        };
+
+        console.log("Sending JWT authenticated user:", userResponse);
+        return res.status(200).json({ user: userResponse });
+
+      } catch (jwtError) {
+        console.error('JWT verification error:', jwtError);
+        return res.status(401).json({ message: "Token inválido" });
+      }
+
+    } catch (error) {
+      console.error('Error in auth/me endpoint:', error);
+      return res.status(500).json({
+        message: 'Erro interno do servidor'
+      });
     }
   });
 
@@ -671,15 +750,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = req.body; // Already validated by middleware
 
+      console.log("Registration attempt for:", userData.username, userData.email);
+
       // Check if user already exists
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
+        console.log("Username already exists:", userData.username);
+        return res.status(400).json({ message: "Nome de usuário já existe" });
       }
 
       const existingEmail = await storage.getUserByEmail(userData.email);
       if (existingEmail) {
-        return res.status(400).json({ message: "Email already exists" });
+        console.log("Email already exists:", userData.email);
+        return res.status(400).json({ message: "Email já está em uso" });
       }
 
       // Hash password
@@ -687,23 +770,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create user with hashed password
       const newUser = await storage.createUser({
-        ...userData,
+        username: userData.username,
+        email: userData.email,
         password: hashedPassword,
+        full_name: userData.name || userData.username,
+        name: userData.name || userData.username,
         role: "customer" // Always register as customer
       });
+
+      console.log("User registered successfully:", newUser.username);
 
       // Remove password from response
       const { password, ...userWithoutPassword } = newUser;
 
       res.status(201).json({
-        message: "User registered successfully",
+        message: "Usuário registrado com sucesso",
         user: userWithoutPassword
       });
     } catch (error) {
+      console.error("Registration error:", error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid user data", errors: error.errors });
+        res.status(400).json({ message: "Dados de usuário inválidos", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Error registering user" });
+        res.status(500).json({ message: "Erro ao registrar usuário" });
       }
     }
   });
@@ -1002,9 +1091,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cart routes
-  app.get("/api/cart", async (req, res) => {
+  app.get("/api/cart", optionalAuth, async (req, res) => {
     try {
-      if (req.isAuthenticated()) {
+      if (req.user?.id) {
         // Authenticated user - use userId
         const cartItems = await storage.getUserCartWithProducts(req.user.id);
         return res.json(cartItems);
@@ -1017,15 +1106,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
     } catch (error) {
-      res.status(500).json({ message: "Error fetching cart" });
+      console.error("Error fetching cart:", error);
+      res.status(500).json({ message: "Erro ao buscar carrinho" });
     }
   });
 
-  app.post("/api/cart", async (req, res) => {
+  app.post("/api/cart", optionalAuth, async (req, res) => {
     try {
       let cartItemData;
 
-      if (req.isAuthenticated()) {
+      if (req.user?.id) {
         // Authenticated user
         cartItemData = insertCartItemSchema.parse({
           ...req.body,
@@ -1038,26 +1128,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionId: req.session.id
         });
       } else {
-        return res.status(400).json({ message: "Session not available" });
+        return res.status(400).json({ message: "Sessão não disponível" });
       }
 
       // Check if product exists and is in stock
       const product = await storage.getProduct(cartItemData.productId);
       if (!product) {
-        return res.status(404).json({ message: "Product not found" });
+        return res.status(404).json({ message: "Produto não encontrado" });
       }
 
       if (product.quantity < cartItemData.quantity) {
-        return res.status(400).json({ message: "Not enough stock available" });
+        return res.status(400).json({ message: "Estoque insuficiente" });
       }
 
       const cartItem = await storage.addToCart(cartItemData);
       res.status(201).json(cartItem);
     } catch (error) {
+      console.error("Error adding to cart:", error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid cart data", errors: error.errors });
+        res.status(400).json({ message: "Dados do carrinho inválidos", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Error adding to cart" });
+        res.status(500).json({ message: "Erro ao adicionar ao carrinho" });
       }
     }
   });
@@ -1222,7 +1313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Freight calculation route - removido para evitar duplicação
 
   // Order routes
-  app.get("/api/orders", isAuthenticated, async (req, res) => {
+  app.get("/api/orders", requireAuth, async (req, res) => {
     try {
       let orders;
 
@@ -1234,31 +1325,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(orders);
     } catch (error) {
-      res.status(500).json({ message: "Error fetching orders" });
+      console.error("Error fetching orders:", error);
+      res.status(500).json({ message: "Erro ao buscar pedidos" });
     }
   });
 
-  app.get("/api/orders/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/orders/:id", requireAuth, async (req, res) => {
     try {
       const orderId = parseInt(req.params.id);
       const order = await storage.getOrderWithItems(orderId);
 
       if (!order) {
-        return res.status(404).json({ message: "Order not found" });
+        return res.status(404).json({ message: "Pedido não encontrado" });
       }
 
       // Check if user is admin or the order belongs to the user
       if (req.user?.role !== "admin" && order.userId !== req.user?.id) {
-        return res.status(403).json({ message: "Forbidden" });
+        return res.status(403).json({ message: "Acesso negado" });
       }
 
       res.json(order);
     } catch (error) {
-      res.status(500).json({ message: "Error fetching order" });
+      console.error("Error fetching order:", error);
+      res.status(500).json({ message: "Erro ao buscar pedido" });
     }
   });
 
-  app.post("/api/orders", isAuthenticated, async (req, res) => {
+  app.post("/api/orders", requireAuth, async (req, res) => {
     try {
       const { order, items } = req.body;
 
@@ -1269,7 +1362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate items
       if (!Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ message: "Order must have at least one item" });
+        return res.status(400).json({ message: "Pedido deve ter pelo menos um item" });
       }
 
       const orderItems = [];
@@ -1283,11 +1376,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check product availability
         const product = await storage.getProduct(orderItem.productId);
         if (!product) {
-          return res.status(404).json({ message: `Product ID ${orderItem.productId} not found` });
+          return res.status(404).json({ message: `Produto ID ${orderItem.productId} não encontrado` });
         }
 
         if (product.quantity < orderItem.quantity) {
-          return res.status(400).json({ message: `Not enough stock available for product ${product.name}` });
+          return res.status(400).json({ message: `Estoque insuficiente para o produto ${product.name}` });
         }
 
         orderItems.push(orderItem);
@@ -1307,10 +1400,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(newOrder);
     } catch (error) {
+      console.error("Error creating order:", error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid order data", errors: error.errors });
+        res.status(400).json({ message: "Dados do pedido inválidos", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Error creating order" });
+        res.status(500).json({ message: "Erro ao criar pedido" });
       }
     }
   });
@@ -1368,7 +1462,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AbacatePay routes
-  app.post("/api/payment/abacatepay/create", isAuthenticated, async (req, res) => {
+  // AbacatePay PIX payment creation (development version - no auth required)
+  app.post("/api/payment/abacatepay/create", async (req, res) => {
     try {
       const { amount, orderId, customerInfo } = req.body;
 
@@ -1380,20 +1475,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Order ID is required" });
       }
 
-      // Criar pagamento no AbacatePay
-      const abacatePayment = await storage.createAbacatePayment({
-        amount,
-        orderId,
-        customerInfo,
-        userId: req.user.id
-      });
+      // Para desenvolvimento, criar um pagamento PIX mock
+      const mockPaymentData = {
+        id: `pix_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        qrCode: generateMockQRCodeSVG(),
+        qrCodeText: generateMockPixCode(),
+        amount: amount,
+        status: 'pending',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes from now
+      };
 
-      res.json(abacatePayment);
+      console.log('Mock payment created:', mockPaymentData);
+      res.json(mockPaymentData);
     } catch (error) {
-      console.error("Error creating AbacatePay payment:", error);
-      res.status(500).json({ message: "Error creating payment" });
+      console.error("Error creating AbacatePay PIX payment:", error);
+      res.status(500).json({ message: "Error creating PIX payment" });
     }
   });
+
+  // AbacatePay Credit Card payment creation
+  app.post("/api/payment/abacatepay/create-card", async (req, res) => {
+    try {
+      const { amount, orderId, customerInfo, cardDetails } = req.body;
+
+      if (!amount || typeof amount !== "number" || amount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      if (!orderId) {
+        return res.status(400).json({ message: "Order ID is required" });
+      }
+
+      if (!cardDetails || !cardDetails.number || !cardDetails.name || !cardDetails.expiry || !cardDetails.cvc) {
+        return res.status(400).json({ message: "Card details are required" });
+      }
+
+      // Para desenvolvimento, criar um pagamento de cartão mock
+      const mockPaymentData = {
+        id: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        amount: amount,
+        status: 'paid', // Simular aprovação imediata para cartão
+        transactionId: `txn_${Date.now()}`,
+        cardLast4: cardDetails.number.slice(-4),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+      };
+
+      res.json(mockPaymentData);
+    } catch (error) {
+      console.error("Error creating AbacatePay card payment:", error);
+      res.status(500).json({ message: "Error creating card payment" });
+    }
+  });
+
+  // AbacatePay Boleto payment creation
+  app.post("/api/payment/abacatepay/create-boleto", async (req, res) => {
+    try {
+      const { amount, orderId, customerInfo } = req.body;
+
+      if (!amount || typeof amount !== "number" || amount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      if (!orderId) {
+        return res.status(400).json({ message: "Order ID is required" });
+      }
+
+      if (!customerInfo || !customerInfo.name || !customerInfo.email || !customerInfo.document) {
+        return res.status(400).json({ message: "Customer info with document is required for boleto" });
+      }
+
+      // Para desenvolvimento, criar um pagamento de boleto mock
+      const mockPaymentData = {
+        id: `boleto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        qrCode: `data:application/pdf;base64,${Buffer.from('Mock Boleto PDF').toString('base64')}`, // Mock PDF
+        qrCodeText: `34191.79001 01043.510047 91020.150008 1 84770000010000`, // Linha digitável mock
+        amount: amount,
+        status: 'pending',
+        expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      };
+
+      res.json(mockPaymentData);
+    } catch (error) {
+      console.error("Error creating AbacatePay boleto payment:", error);
+      res.status(500).json({ message: "Error creating boleto payment" });
+    }
+  });
+
+  // Helper functions for mock payment
+  function generateMockQRCodeSVG(): string {
+    return `data:image/svg+xml;base64,${Buffer.from(`
+      <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+        <rect width="200" height="200" fill="white" stroke="#000" stroke-width="2"/>
+        <rect x="20" y="20" width="160" height="160" fill="none" stroke="#000" stroke-width="1"/>
+        <rect x="40" y="40" width="20" height="20" fill="#000"/>
+        <rect x="80" y="40" width="20" height="20" fill="#000"/>
+        <rect x="120" y="40" width="20" height="20" fill="#000"/>
+        <rect x="160" y="40" width="20" height="20" fill="#000"/>
+        <rect x="40" y="80" width="20" height="20" fill="#000"/>
+        <rect x="120" y="80" width="20" height="20" fill="#000"/>
+        <rect x="40" y="120" width="20" height="20" fill="#000"/>
+        <rect x="80" y="120" width="20" height="20" fill="#000"/>
+        <rect x="160" y="120" width="20" height="20" fill="#000"/>
+        <rect x="40" y="160" width="20" height="20" fill="#000"/>
+        <rect x="80" y="160" width="20" height="20" fill="#000"/>
+        <rect x="120" y="160" width="20" height="20" fill="#000"/>
+        <rect x="160" y="160" width="20" height="20" fill="#000"/>
+        <text x="100" y="195" text-anchor="middle" font-family="Arial" font-size="8" fill="#666">
+          QR Code PIX - Desenvolvimento
+        </text>
+      </svg>
+    `).toString('base64')}`;
+  }
+
+  function generateMockPixCode(): string {
+    return "00020126580014br.gov.bcb.pix013614d9d0b7-f8a4-4e8a-9b2c-1a3b4c5d6e7f8g5204000053039865802BR5925LOJA TESTE DESENVOLVIMENTO6009SAO PAULO62070503***6304A1B2";
+  }
 
   // Verificar status do pagamento AbacatePay
   app.get("/api/payment/abacatepay/status/:paymentId", isAuthenticated, async (req, res) => {
@@ -1890,8 +2087,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Verificar se o usuário está tentando acessar seu próprio perfil
-      if (req.user.id !== parseInt(userId)) {
-        console.log(`Acesso negado: user.id=${req.user.id}, userId=${userId}, tipos: ${typeof req.user.id} e ${typeof userId}`);
+      if (req.user!.id !== parseInt(userId)) {
+        console.log(`Acesso negado: user.id=${req.user!.id}, userId=${userId}, tipos: ${typeof req.user!.id} e ${typeof userId}`);
         return res.status(403).json({ message: "Acesso negado" });
       }
 
@@ -1926,8 +2123,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Verificar se o usuário está tentando atualizar seu próprio perfil
-      if (req.user.id !== parseInt(userId)) {
-        console.log(`Acesso negado: user.id=${req.user.id}, userId=${userId}, tipos: ${typeof req.user.id} e ${typeof userId}`);
+      if (req.user!.id !== parseInt(userId)) {
+        console.log(`Acesso negado: user.id=${req.user!.id}, userId=${userId}, tipos: ${typeof req.user!.id} e ${typeof userId}`);
         return res.status(403).json({ message: "Acesso negado" });
       }
 
@@ -2262,38 +2459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Obter detalhes de um pedido específico
-  app.get("/api/orders/:orderId", async (req, res) => {
-    try {
-      const { orderId } = req.params;
-
-      // Verificar se o usuário está autenticado
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Usuário não autenticado" });
-      }
-
-      // Buscar detalhes do pedido
-      const order = await storage.getOrderById(orderId);
-
-      if (!order) {
-        return res.status(404).json({ message: "Pedido não encontrado" });
-      }
-
-      // Verificar se o pedido pertence ao usuário autenticado
-      if (order.userId !== req.user.id) {
-        console.log(`Acesso negado: order.userId=${order.userId}, user.id=${req.user.id}, tipos: ${typeof order.userId} e ${typeof req.user.id}`);
-        return res.status(403).json({ message: "Acesso negado" });
-      }
-
-      res.json(order);
-    } catch (error) {
-      console.error("Erro ao buscar detalhes do pedido:", error);
-      res.status(500).json({
-        message: "Erro ao buscar detalhes do pedido",
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
+  // Rota duplicada removida - usar a rota principal em /api/orders/:id
 
   // Criar um novo pedido
   app.post("/api/orders", async (req, res) => {

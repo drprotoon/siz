@@ -30,17 +30,30 @@ export interface Product {
   name: string;
   description: string;
   price: string | number;
+  compareAtPrice?: string | number;
   images: string[];
-  category_id: number;
+  category_id?: number;
+  categoryId?: number;
+  category?: Category;
   quantity: number;
   featured?: boolean;
   new_arrival?: boolean;
+  newArrival?: boolean;
   best_seller?: boolean;
+  bestSeller?: boolean;
   visible?: boolean;
-  weight?: string;
+  weight?: string | number;
+  height?: number;
+  width?: number;
+  length?: number;
   dimensions?: string;
   brand?: string;
   sku?: string;
+  slug?: string;
+  rating?: string | number;
+  reviewCount?: number;
+  ingredients?: string;
+  howToUse?: string;
   createdat?: string;
   updatedAt?: string;
 }
@@ -104,16 +117,15 @@ export interface WishlistCheck {
   isInWishlist: boolean;
 }
 
-// Shipping types
-export interface FrenetShippingService {
-  Carrier: string;
-  ServiceDescription: string;
-  ServiceCode: string;
-  CarrierCode: string;
-  ShippingPrice: number;
-  DeliveryTime: string;
-  Error: boolean;
-}
+// Shipping types - Import from frenetService for consistency
+export type {
+  FrenetShippingService,
+  FrenetAddressResponse,
+  FrenetQuoteRequest,
+  FrenetTrackingRequest,
+  FrenetTrackingEvent,
+  FrenetQuoteResponse
+} from '@/lib/frenetService';
 
 // Stats types
 export interface AdminStats {

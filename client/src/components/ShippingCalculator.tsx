@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Truck, Package, Clock } from "lucide-react";
 import { useShipping } from "@/contexts/ShippingContext";
 import { useCart } from "@/contexts/CartContext";
+import { getShippingQuote, type FrenetShippingService, type FrenetQuoteRequest } from '@/lib/frenetService';
 
 interface ShippingCalculatorProps {
   onSelectShipping: (shipping: FrenetShippingService) => void;
@@ -40,9 +41,9 @@ export default function ShippingCalculator({
           if (item.product.weight) {
             // Se o peso for uma string, converter para número
             if (typeof item.product.weight === 'string') {
-              weight = parseFloat(item.product.weight.replace(/[^\d.-]/g, ''));
+              weight = parseFloat((item.product.weight as string).replace(/[^\d.-]/g, ''));
             } else {
-              weight = item.product.weight;
+              weight = Number(item.product.weight);
             }
             // Garantir que o peso seja um número válido
             if (isNaN(weight) || weight <= 0) {
@@ -62,7 +63,7 @@ export default function ShippingCalculator({
 
         // Calcular o valor total do pedido
         const invoiceValue = cartItems.reduce(
-          (sum, item) => sum + (parseFloat(item.product.price) * item.quantity),
+          (sum, item) => sum + (parseFloat(String(item.product.price)) * item.quantity),
           0
         );
 

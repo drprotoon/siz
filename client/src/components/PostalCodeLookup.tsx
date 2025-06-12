@@ -11,6 +11,13 @@ import { useToast } from '@/hooks/use-toast';
 import AddressDisplay from '@/components/AddressDisplay';
 import ShippingOptionsModal from '@/components/ShippingOptionsModal';
 import { formatPostalCode, formatCurrency } from '@/lib/utils';
+import {
+  getShippingQuote,
+  getAddressByCEP,
+  type FrenetAddressResponse,
+  type FrenetShippingService,
+  type FrenetQuoteRequest
+} from '@/lib/frenetService';
 
 interface PostalCodeLookupProps {
   onAddressFound?: (address: FrenetAddressResponse) => void;
