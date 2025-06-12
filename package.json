@@ -20,7 +20,12 @@
     "db:reset": "npm run db:setup && npm run db:seed",
     "db:migrate": "drizzle-kit generate:pg",
     "db:migrate:essential": "tsx scripts/run-essential-migrations.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "supabase:verify": "tsx scripts/verify-supabase-schema.ts",
+    "supabase:check": "tsx scripts/check-supabase-dashboard.ts",
+    "supabase:deploy": "chmod +x scripts/deploy-edge-functions.sh && ./scripts/deploy-edge-functions.sh",
+    "test:edge-functions": "tsx scripts/test-edge-functions.ts",
+    "cleanup:vercel": "tsx scripts/cleanup-vercel-functions.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

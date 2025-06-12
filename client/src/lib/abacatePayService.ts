@@ -48,21 +48,33 @@ export async function createAbacatePayment(data: CreateAbacatePaymentData): Prom
   try {
     console.log('Creating AbacatePay payment with data:', data);
 
-    // Use the consolidated payment endpoint
-    const endpoint = '/api/payment';
+    // Try Edge Function first, fallback to Vercel API
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const useEdgeFunction = supabaseUrl && supabaseUrl !== 'https://your-project.supabase.co';
 
-    // Fazer requisição para a API do servidor
+    let endpoint = '/api/payment'; // Fallback to Vercel API
+
+    if (useEdgeFunction) {
+      endpoint = `${supabaseUrl}/functions/v1/payment`;
+    }
+
+    console.log('Using endpoint:', endpoint);
+
+    // Fazer requisição para a API do servidor ou Edge Function
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(useEdgeFunction && {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        })
       },
       body: JSON.stringify(data)
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to create payment");
+      throw new Error(errorData.message || errorData.error || "Failed to create payment");
     }
 
     const paymentResponse = await response.json();
