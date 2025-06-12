@@ -54,13 +54,13 @@ export default function Login() {
   // Handle login mutation
   const loginMutation = useMutation({
     mutationFn: async (values: z.infer<typeof loginSchema>) => {
-      // Use JWT login endpoint for better token management
-      const response = await fetch("/api/auth/login-jwt", {
+      // Use consolidated auth endpoint for login
+      const response = await fetch("/api/auth", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ email: values.username, password: values.password }),
         credentials: "include",
       });
 
@@ -166,7 +166,7 @@ export default function Login() {
       } catch (error) {
         console.error("Erro ao processar resposta de login:", error);
         // Em caso de erro ao processar o JSON, redireciona para a home
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth"] });
         queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
 
         // Redirecionar para a página inicial mesmo em caso de erro

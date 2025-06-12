@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
-import { supabase } from '../lib/supabase';
+import { supabase } from './lib/supabase';
 
 interface AuthenticatedRequest extends VercelRequest {
   user?: {
@@ -69,40 +69,84 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Token de acesso requerido' });
   }
 
+  // Check if this is a specific order request (has ID in URL)
+  const isSpecificOrder = req.url?.match(/\/orders\/(\d+)/);
+  const orderId = isSpecificOrder ? parseInt(isSpecificOrder[1]) : null;
+
   try {
     if (req.method === 'GET') {
-      // Buscar pedidos do usuário
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            product_id,
-            quantity,
-            price,
-            products (
+      if (orderId) {
+        // Buscar pedido específico com itens
+        const { data: order, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
               id,
-              name,
-              slug,
-              images
+              product_id,
+              quantity,
+              price,
+              products (
+                id,
+                name,
+                slug,
+                images,
+                description
+              )
             )
-          )
-        `);
+          `)
+          .eq('id', orderId)
+          .single();
 
-      // Se não for admin, filtrar apenas pedidos do usuário
-      if (authReq.user?.role !== 'admin') {
-        query = query.eq('user_id', authReq.user?.id);
+        if (error) {
+          console.error('Error fetching order:', error);
+          return res.status(404).json({ error: 'Pedido não encontrado' });
+        }
+
+        if (!order) {
+          return res.status(404).json({ error: 'Pedido não encontrado' });
+        }
+
+        // Verificar se o usuário tem permissão para ver este pedido
+        if (authReq.user?.role !== 'admin' && order.user_id !== authReq.user?.id) {
+          return res.status(403).json({ error: 'Acesso negado' });
+        }
+
+        return res.status(200).json(order);
+      } else {
+        // Buscar todos os pedidos do usuário
+        let query = supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              id,
+              product_id,
+              quantity,
+              price,
+              products (
+                id,
+                name,
+                slug,
+                images
+              )
+            )
+          `);
+
+        // Se não for admin, filtrar apenas pedidos do usuário
+        if (authReq.user?.role !== 'admin') {
+          query = query.eq('user_id', authReq.user?.id);
+        }
+
+        const { data: orders, error } = await query.order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching orders:', error);
+          return res.status(500).json({ error: 'Erro ao buscar pedidos' });
+        }
+
+        return res.status(200).json(orders || []);
       }
-
-      const { data: orders, error } = await query.order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching orders:', error);
-        return res.status(500).json({ error: 'Erro ao buscar pedidos' });
-      }
-
-      return res.status(200).json(orders || []);
 
     } else if (req.method === 'POST') {
       // Criar novo pedido
@@ -163,6 +207,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       return res.status(201).json(order);
+
+    } else if (req.method === 'PUT' && orderId) {
+      // Atualizar status do pedido (apenas admin)
+      if (authReq.user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Acesso negado - apenas administradores' });
+      }
+
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ error: 'Status é obrigatório' });
+      }
+
+      const { data: updatedOrder, error } = await supabase
+        .from('orders')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating order:', error);
+        return res.status(500).json({ error: 'Erro ao atualizar pedido' });
+      }
+
+      return res.status(200).json(updatedOrder);
 
     } else {
       return res.status(405).json({ error: 'Method not allowed' });

@@ -20,7 +20,7 @@ export default function AdminOrders() {
 
   // Check if user is admin
   const { data: authData, isLoading: authLoading } = useQuery({
-    queryKey: ["/api/auth/me"],
+    queryKey: ["/api/auth"],
   });
   
   const isAdmin = authData?.user?.role === "admin";

@@ -44,6 +44,27 @@ LICENSE
 *.md
 !VERCEL_DEPLOY.md
 
+# Test files and development scripts
+test-*.js
+test-*.html
+test-*.ts
+check-*.js
+cookies.txt
+
+# Development scripts
+scripts/create-*
+scripts/seed-*
+scripts/setup-*
+scripts/upload-*
+scripts/fix-*
+scripts/run-*
+
+# Server files not needed for Vercel
+server/api-test.ts
+server/auth-test.ts
+server/scripts/
+server/vite.ts
+
 # Não ignorar arquivos importantes
 !api
 !dist

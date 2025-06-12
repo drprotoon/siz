@@ -16,14 +16,14 @@ export function AdminAuthTester() {
   const testLogin = async () => {
     setIsLoading(true);
     try {
-      console.log('Testing login with JWT endpoint...');
-      
-      const response = await fetch('/api/auth/login-jwt', {
+      console.log('Testing login with consolidated auth endpoint...');
+
+      const response = await fetch('/api/auth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email: username, password }),
       });
 
       const data = await response.json();

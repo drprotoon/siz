@@ -189,8 +189,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.log('AuthContext: Token valid, verifying with server for user:', userData.username);
 
               try {
-                console.log('AuthContext: Making request to /api/auth/me with token');
-                const response = await fetch('/api/auth/me', {
+                console.log('AuthContext: Making request to /api/auth with token');
+                const response = await fetch('/api/auth', {
                   headers: {
                     'Authorization': `Bearer ${storedToken}`,
                     'Cache-Control': 'no-cache',
@@ -199,7 +199,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   credentials: 'include'
                 });
 
-                console.log('AuthContext: /api/auth/me response status:', response.status);
+                console.log('AuthContext: /api/auth response status:', response.status);
 
                 if (response.ok) {
                   const data = await response.json();
@@ -211,7 +211,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     return;
                   }
                 } else {
-                  console.log('AuthContext: /api/auth/me failed with status:', response.status);
+                  console.log('AuthContext: /api/auth failed with status:', response.status);
                   // Token might be invalid, remove it
                   localStorage.removeItem('authToken');
                   localStorage.removeItem('user');

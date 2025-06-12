@@ -50,7 +50,7 @@ export default api;
 // Authentication API
 export const authAPI = {
   login: (username: string, password: string) =>
-    api.post('/auth/login', { username, password }),
+    api.post('/auth', { email: username, password }),
 
   logout: () =>
     api.post('/auth/logout'),
@@ -59,10 +59,10 @@ export const authAPI = {
     api.post('/auth/register', userData),
 
   getCurrentUser: () =>
-    api.get('/auth/me'),
+    api.get('/auth'),
 
   updateProfile: (userId: number, profileData: any) =>
-    api.put(`/users/${userId}/profile`, profileData),
+    api.put(`/users/${userId}`, profileData),
 
   changePassword: (userId: number, currentPassword: string, newPassword: string) =>
     api.put(`/users/${userId}/password`, { currentPassword, newPassword })
@@ -196,9 +196,9 @@ export const healthAPI = {
 
 // AbacatePay API
 export const abacatePayAPI = {
-  createPayment: (data: { amount: number; orderId: number; customerInfo?: any }) =>
-    api.post('/payment/abacatepay/create', data),
+  createPayment: (data: { amount: number; orderId: number; customerInfo?: any; paymentMethod: 'pix' | 'credit_card' | 'boleto'; cardDetails?: any }) =>
+    api.post('/payment', data),
 
   checkPaymentStatus: (paymentId: string) =>
-    api.get(`/payment/abacatepay/status/${paymentId}`)
+    api.get(`/payment/status/${paymentId}`)
 };

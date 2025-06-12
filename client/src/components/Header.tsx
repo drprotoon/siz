@@ -49,7 +49,7 @@ export default function Header() {
 
   // Auth query to check if user is logged in
   const { data: authData, isLoading: isAuthLoading } = useQuery({
-    queryKey: ["/api/auth/me"],
+    queryKey: ["/api/auth"],
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
@@ -69,7 +69,7 @@ export default function Header() {
       return apiRequest("POST", "/api/auth/logout", {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth"] });
       toast({
         title: "Logged out successfully",
         variant: "default",
@@ -145,7 +145,7 @@ export default function Header() {
       } catch (error) {
         console.error("Erro ao processar resposta de login:", error);
         // Em caso de erro ao processar o JSON, redireciona para a home
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth"] });
         queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
 
         navigate("/");

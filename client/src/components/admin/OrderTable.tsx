@@ -62,7 +62,7 @@ export default function OrderTable({ limit, statusFilter = "all", searchTerm = "
   // Update order status mutation
   const updateOrderStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number, status: string }) => {
-      return apiRequest("PUT", `/api/orders/${id}/status`, { status });
+      return apiRequest("PUT", `/api/orders/${id}`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });

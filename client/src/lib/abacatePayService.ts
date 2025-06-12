@@ -48,12 +48,8 @@ export async function createAbacatePayment(data: CreateAbacatePaymentData): Prom
   try {
     console.log('Creating AbacatePay payment with data:', data);
 
-    // Determinar endpoint baseado no método de pagamento
-    const endpoint = data.paymentMethod === 'credit_card'
-      ? '/api/payment/abacatepay/create-card'
-      : data.paymentMethod === 'boleto'
-      ? '/api/payment/abacatepay/create-boleto'
-      : '/api/payment/abacatepay/create';
+    // Use the consolidated payment endpoint
+    const endpoint = '/api/payment';
 
     // Fazer requisição para a API do servidor
     const response = await fetch(endpoint, {
