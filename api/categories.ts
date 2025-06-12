@@ -30,12 +30,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         name,
         slug,
         description,
-        image,
-        visible,
-        created_at,
-        updated_at
+        image_url,
+        parent_id,
+        order
       `)
-      .eq('visible', true)
       .order('name', { ascending: true });
 
     if (error) {
@@ -43,7 +41,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ message: 'Error fetching categories' });
     }
 
-    res.json(categories || []);
+    // Transform the data to match expected format
+    const transformedCategories = categories?.map(category => ({
+      ...category,
+      image: category.image_url
+    })) || [];
+
+    res.json(transformedCategories);
 
   } catch (error) {
     console.error('Error in /api/categories:', error);

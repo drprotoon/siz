@@ -33,19 +33,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         slug,
         description,
         price,
-        sale_price,
-        stock_quantity,
-        images,
-        featured,
-        visible,
+        compareatprice,
+        sku,
+        weight,
+        quantity,
         category_id,
-        created_at,
-        updated_at,
-        categories (
-          id,
-          name,
-          slug
-        )
+        images,
+        ingredients,
+        visible,
+        featured,
+        new_arrival,
+        best_seller,
+        rating,
+        reviewcount,
+        created_at
       `);
 
     // Apply filters
@@ -54,9 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (bestSeller === 'true') {
-      // For now, we'll use featured as best seller
-      // You can add a best_seller column later
-      query = query.eq('featured', true);
+      query = query.eq('best_seller', true);
     }
 
     if (category) {
@@ -92,9 +91,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Transform the data to match expected format
     const transformedProducts = products?.map(product => ({
       ...product,
-      images: Array.isArray(product.images) ? product.images : 
+      images: Array.isArray(product.images) ? product.images :
                product.images ? [product.images] : [],
-      category: product.categories
+      sale_price: product.compareatprice,
+      stock_quantity: product.quantity
     })) || [];
 
     res.json(transformedProducts);
