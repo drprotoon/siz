@@ -1,0 +1,94 @@
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { supabase } from './lib/supabase';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  try {
+    const { featured, bestSeller, category, visible = 'true' } = req.query;
+
+    // Build query
+    let query = supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        slug,
+        description,
+        price,
+        sale_price,
+        stock_quantity,
+        images,
+        featured,
+        visible,
+        category_id,
+        created_at,
+        updated_at,
+        categories (
+          id,
+          name,
+          slug
+        )
+      `);
+
+    // Apply filters
+    if (featured === 'true') {
+      query = query.eq('featured', true);
+    }
+
+    if (bestSeller === 'true') {
+      // For now, we'll use featured as best seller
+      // You can add a best_seller column later
+      query = query.eq('featured', true);
+    }
+
+    if (category) {
+      // Get category by slug first
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('slug', category)
+        .single();
+
+      if (categoryError || !categoryData) {
+        return res.json([]);
+      }
+
+      query = query.eq('category_id', categoryData.id);
+    }
+
+    // Only show visible products by default
+    if (visible === 'true') {
+      query = query.eq('visible', true);
+    }
+
+    // Order by created_at desc
+    query = query.order('created_at', { ascending: false });
+
+    const { data: products, error } = await query;
+
+    if (error) {
+      console.error('Error fetching products:', error);
+      return res.status(500).json({ message: 'Error fetching products' });
+    }
+
+    // Transform the data to match expected format
+    const transformedProducts = products?.map(product => ({
+      ...product,
+      images: Array.isArray(product.images) ? product.images : 
+               product.images ? [product.images] : [],
+      category: product.categories
+    })) || [];
+
+    res.json(transformedProducts);
+
+  } catch (error) {
+    console.error('Error in /api/products:', error);
+    res.status(500).json({ 
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+}

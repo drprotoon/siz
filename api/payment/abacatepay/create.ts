@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       amount: Math.round(amount * 100), // AbacatePay espera valor em centavos
       currency: 'BRL',
       payment_method: 'pix',
-      webhook_url: `${process.env.WEBHOOK_BASE_URL || 'https://siz-cosmetic-store-pro.vercel.app'}/api/webhook/abacatepay?webhookSecret=${process.env.ABACATEPAY_WEBHOOK_SECRET}`,
+      webhook_url: `${process.env.WEBHOOK_BASE_URL || 'https://sizcosmeticos.vercel.app'}/api/webhook/abacatepay?webhookSecret=${process.env.ABACATEPAY_WEBHOOK_SECRET}`,
       metadata: {
         orderId: orderId.toString(),
         customerInfo: customerInfo || {}
