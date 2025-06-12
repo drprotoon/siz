@@ -40,13 +40,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         category_id,
         images,
         ingredients,
+        howtouse,
         visible,
         featured,
         new_arrival,
         best_seller,
         rating,
-        reviewcount,
-        created_at
+        review_count,
+        createdat
       `);
 
     // Apply filters
@@ -94,7 +95,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       images: Array.isArray(product.images) ? product.images :
                product.images ? [product.images] : [],
       sale_price: product.compareatprice,
-      stock_quantity: product.quantity
+      stock_quantity: product.quantity,
+      created_at: product.createdat,
+      reviewCount: product.review_count,
+      how_to_use: product.howtouse
     })) || [];
 
     res.json(transformedProducts);
