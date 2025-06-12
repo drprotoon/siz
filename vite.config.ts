@@ -21,6 +21,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
     cssCodeSplit: false, // Disable CSS code splitting to ensure all CSS is in one file
     rollupOptions: {
       output: {
@@ -35,7 +36,15 @@ export default defineConfig({
         // Ensure JS is in a predictable location
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
-        manualChunks: undefined
+        // Split large dependencies into separate chunks
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          charts: ['recharts'],
+          forms: ['react-hook-form', '@hookform/resolvers'],
+          icons: ['lucide-react'],
+          utils: ['axios', 'date-fns', 'clsx']
+        }
       }
     }
   },
