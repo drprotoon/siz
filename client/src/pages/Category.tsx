@@ -32,7 +32,7 @@ export default function Category() {
 
   // Fetch category details
   const { data: category, isLoading: categoryLoading } = useQuery({
-    queryKey: [`/api/categories/${slug}`],
+    queryKey: [`/api/categories`, { slug }],
   });
 
   // Fetch products for this category

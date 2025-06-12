@@ -125,7 +125,7 @@ export default function ProductForm() {
       const fetchProduct = async () => {
         setIsLoading(true);
         try {
-          const response = await fetch(`/api/products/${id}`, {
+          const response = await fetch(`/api/products?id=${id}`, {
             credentials: 'include',
           });
 

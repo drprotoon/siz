@@ -22,6 +22,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const { slug } = req.query;
+
+    // If slug is provided, get specific category
+    if (slug && typeof slug === 'string') {
+      const { data: category, error } = await supabase
+        .from('categories')
+        .select(`
+          id,
+          name,
+          slug,
+          description,
+          image_url,
+          parent_id,
+          order
+        `)
+        .eq('slug', slug)
+        .single();
+
+      if (error || !category) {
+        return res.status(404).json({ message: 'Category not found' });
+      }
+
+      // Transform the data to match expected format
+      const transformedCategory = {
+        ...category,
+        image: category.image_url
+      };
+
+      return res.json(transformedCategory);
+    }
+
     // Get all categories
     const { data: categories, error } = await supabase
       .from('categories')
@@ -51,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error) {
     console.error('Error in /api/categories:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Internal server error',
       error: error instanceof Error ? error.message : String(error)
     });

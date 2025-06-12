@@ -50,7 +50,7 @@ export default function CategoryForm() {
 
   // Fetch category if in edit mode
   const { data: category, isLoading: categoryLoading } = useQuery({
-    queryKey: [`/api/categories/${id}`],
+    queryKey: [`/api/categories`, { id }],
     enabled: isEditMode && isAdmin,
   });
 

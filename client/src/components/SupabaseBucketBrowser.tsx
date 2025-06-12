@@ -135,7 +135,7 @@ export default function SupabaseBucketBrowser({
   // Fetch category by ID
   const fetchCategoryById = async (id: number) => {
     try {
-      const response = await fetch(`/api/categories/${id}`, {
+      const response = await fetch(`/api/categories?id=${id}`, {
         credentials: "include",
       });
 

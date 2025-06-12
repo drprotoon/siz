@@ -28,7 +28,7 @@ const productsService = {
 
   getById: async (id: number): Promise<Product | null> => {
     try {
-      const response = await apiRequest('GET', `/api/products/${id}`);
+      const response = await apiRequest('GET', `/api/products?id=${id}`);
       const data = await response.json();
       return data || null;
     } catch (error) {
@@ -39,7 +39,7 @@ const productsService = {
 
   getBySlug: async (slug: string): Promise<Product | null> => {
     try {
-      const response = await apiRequest('GET', `/api/products/${slug}`);
+      const response = await apiRequest('GET', `/api/products?id=${slug}`);
       const data = await response.json();
       return data || null;
     } catch (error) {
@@ -83,11 +83,22 @@ const categoriesService = {
 
   getById: async (id: number): Promise<Category | null> => {
     try {
-      const response = await apiRequest('GET', `/api/categories/${id}`);
+      const response = await apiRequest('GET', `/api/categories?id=${id}`);
       const data = await response.json();
       return data || null;
     } catch (error) {
       console.error('Error fetching category:', error);
+      return null;
+    }
+  },
+
+  getBySlug: async (slug: string): Promise<Category | null> => {
+    try {
+      const response = await apiRequest('GET', `/api/categories?slug=${slug}`);
+      const data = await response.json();
+      return data || null;
+    } catch (error) {
+      console.error('Error fetching category by slug:', error);
       return null;
     }
   },

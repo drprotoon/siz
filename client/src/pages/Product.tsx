@@ -38,7 +38,7 @@ export default function Product() {
     isLoading,
     isError
   } = useQuery({
-    queryKey: [`/api/products/${slug}`],
+    queryKey: [`/api/products`, { id: slug }],
   });
 
   // Set initial main image when product data loads

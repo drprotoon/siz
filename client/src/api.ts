@@ -80,10 +80,10 @@ export const productsAPI = {
     api.get('/products', { params: { featured: true } }),
 
   getById: (id: number) =>
-    api.get(`/products/${id}`),
+    api.get(`/products`, { params: { id } }),
 
   getBySlug: (slug: string) =>
-    api.get(`/products/${slug}`),
+    api.get(`/products`, { params: { id: slug } }),
 
   getReviews: (productId: number) =>
     api.get(`/products/${productId}/reviews`),
@@ -98,7 +98,7 @@ export const categoriesAPI = {
     api.get('/categories'),
 
   getBySlug: (slug: string) =>
-    api.get(`/categories/${slug}`)
+    api.get(`/categories`, { params: { slug } })
 };
 
 // Cart API

@@ -1,6 +1,18 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client directly
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+}) : null;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
@@ -15,6 +27,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Handle schema debug endpoint
+    if (req.url?.includes('/schema')) {
+      if (!supabase) {
+        return res.status(500).json({
+          success: false,
+          error: 'Supabase not configured'
+        });
+      }
+
+      console.log('Testing Supabase connection...');
+
+      const tables = ['users', 'categories', 'products', 'orders', 'addresses', 'payments'];
+      const results: any = {};
+
+      for (const tableName of tables) {
+        try {
+          const { data, error } = await supabase
+            .from(tableName)
+            .select('*')
+            .limit(1);
+
+          results[tableName] = {
+            exists: !error,
+            error: error?.message || null,
+            columns: data && data.length > 0 ? Object.keys(data[0]) : [],
+            sampleData: data?.[0] || null,
+            count: data?.length || 0
+          };
+        } catch (tableError) {
+          results[tableName] = {
+            exists: false,
+            error: tableError instanceof Error ? tableError.message : String(tableError),
+            columns: [],
+            sampleData: null,
+            count: 0
+          };
+        }
+      }
+
+      return res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        tables: results
+      });
+    }
+
     // Handle payment config endpoint
     if (req.url?.includes('/payment-config')) {
       // Check environment variables (without exposing sensitive data)

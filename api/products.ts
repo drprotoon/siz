@@ -22,7 +22,73 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { featured, bestSeller, category, visible = 'true', new_arrival } = req.query;
+    const { featured, bestSeller, category, visible = 'true', new_arrival, id } = req.query;
+
+    // If id is provided, get specific product
+    if (id && typeof id === 'string') {
+      // Check if id is a number or slug
+      const isNumeric = /^\d+$/.test(id);
+
+      let query = supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          slug,
+          description,
+          price,
+          compareatprice,
+          sku,
+          weight,
+          quantity,
+          category_id,
+          images,
+          ingredients,
+          how_to_use,
+          visible,
+          featured,
+          new_arrival,
+          best_seller,
+          rating,
+          review_count,
+          created_at,
+          categories (
+            id,
+            name,
+            slug
+          )
+        `)
+        .eq('visible', true);
+
+      // If numeric, search by ID, otherwise by slug
+      if (isNumeric) {
+        query = query.eq('id', parseInt(id));
+      } else {
+        query = query.eq('slug', id);
+      }
+
+      const { data: product, error } = await query.single();
+
+      if (error || !product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+
+      // Transform the data to match expected format
+      const transformedProduct = {
+        ...product,
+        images: Array.isArray(product.images) ? product.images :
+                 product.images ? [product.images] : [],
+        sale_price: product.compareatprice,
+        stock_quantity: product.quantity,
+        created_at: product.created_at,
+        reviewCount: product.review_count,
+        how_to_use: product.how_to_use,
+        category: product.categories,
+        categoryId: product.category_id
+      };
+
+      return res.json(transformedProduct);
+    }
 
     // Build query
     let query = supabase
