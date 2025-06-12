@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_ENDPOINTS } from '@/lib/api-config';
 
 interface User {
   id: number;
@@ -189,17 +190,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.log('AuthContext: Token valid, verifying with server for user:', userData.username);
 
               try {
-                console.log('AuthContext: Making request to /api/auth with token');
-                const response = await fetch('/api/auth', {
+                console.log('AuthContext: Making request to auth endpoint with token');
+                const response = await fetch(API_ENDPOINTS.auth, {
                   headers: {
                     'Authorization': `Bearer ${storedToken}`,
                     'Cache-Control': 'no-cache',
                     'Pragma': 'no-cache'
                   },
-                  credentials: 'include'
+                  credentials: 'omit'
                 });
 
-                console.log('AuthContext: /api/auth response status:', response.status);
+                console.log('AuthContext: auth endpoint response status:', response.status);
 
                 if (response.ok) {
                   const data = await response.json();
@@ -211,7 +212,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     return;
                   }
                 } else {
-                  console.log('AuthContext: /api/auth failed with status:', response.status);
+                  console.log('AuthContext: auth endpoint failed with status:', response.status);
                   // Token might be invalid, remove it
                   localStorage.removeItem('authToken');
                   localStorage.removeItem('user');

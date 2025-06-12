@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { apiRequest as configApiRequest, API_ENDPOINTS } from "./api-config";
 
 /**
  * Obtém a URL base da API com base no ambiente
@@ -253,3 +254,6 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Export the new API configuration
+export { API_ENDPOINTS, configApiRequest };

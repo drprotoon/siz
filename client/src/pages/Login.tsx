@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, API_ENDPOINTS } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -28,7 +28,7 @@ const loginSchema = z.object({
 export default function Login() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const { checkoutRedirectUrl, setCheckoutRedirectUrl } = useAuth();
+  const { checkoutRedirectUrl, setCheckoutRedirectUrl, login } = useAuth();
 
   // Verificar se há um redirecionamento para checkout
   useEffect(() => {
@@ -54,20 +54,11 @@ export default function Login() {
   // Handle login mutation
   const loginMutation = useMutation({
     mutationFn: async (values: z.infer<typeof loginSchema>) => {
-      // Use consolidated auth endpoint for login
-      const response = await fetch("/api/auth", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: values.username, password: values.password }),
-        credentials: "include",
+      // Use Supabase Edge Function for login
+      const response = await apiRequest("POST", API_ENDPOINTS.auth, {
+        email: values.username,
+        password: values.password
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Login failed");
-      }
 
       return response.json();
     },
@@ -101,7 +92,7 @@ export default function Login() {
         const redirectAfterLogin = sessionStorage.getItem('redirectAfterLogin');
         const pendingProductId = sessionStorage.getItem('pendingProductId');
         const pendingProductQuantity = sessionStorage.getItem('pendingProductQuantity');
-        const pendingShipping = sessionStorage.getItem('pendingShipping');
+        // const pendingShipping = sessionStorage.getItem('pendingShipping');
 
           // Se houver um produto pendente, adicionar ao carrinho
           if (pendingProductId && pendingProductQuantity) {
@@ -121,7 +112,7 @@ export default function Login() {
               });
 
               // Invalidar a query do carrinho para atualizar os dados
-              queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+              queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.cart] });
 
               // Limpar os dados pendentes
               sessionStorage.removeItem('pendingProductId');

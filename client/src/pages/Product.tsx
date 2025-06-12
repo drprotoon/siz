@@ -9,13 +9,26 @@ import { QuantitySelector } from "@/components/ui/quantity-selector";
 import { Card, CardHeader, CardContent, CardFooter, CardTitle, CardDescription } from "@/components/ui/card";
 import PostalCodeLookup from "@/components/PostalCodeLookup";
 import ProductCard from "@/components/ProductCard";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, API_ENDPOINTS } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, getDiscountPercentage } from "@/lib/utils";
 import { Heart, ShoppingBag, CheckCircle, Truck, CreditCard, Loader2 } from "lucide-react";
-// Frenet integrado ao freight-client
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import type { Product, FrenetShippingService, WishlistCheck } from "@/types";
+
+// Helper functions for type conversion
+const parsePrice = (price: string | number | undefined): number => {
+  if (typeof price === 'number') return price;
+  if (typeof price === 'string') return parseFloat(price);
+  return 0;
+};
+
+const parseRating = (rating: string | number | undefined): number => {
+  if (typeof rating === 'number') return rating;
+  if (typeof rating === 'string') return parseFloat(rating);
+  return 0;
+};
 
 export default function Product() {
   const { slug } = useParams();
@@ -27,7 +40,7 @@ export default function Product() {
   const [isProcessingBuyNow, setIsProcessingBuyNow] = useState(false);
 
   // Use o hook useAuth para verificar a autenticação de forma confiável
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Use o hook useCart para acessar o contexto do carrinho
   const { buyNow } = useCart();
@@ -37,8 +50,9 @@ export default function Product() {
     data: product,
     isLoading,
     isError
-  } = useQuery({
-    queryKey: [`/api/products`, { id: slug }],
+  } = useQuery<Product>({
+    queryKey: [API_ENDPOINTS.product(slug || '')],
+    enabled: !!slug,
   });
 
   // Set initial main image when product data loads
@@ -62,31 +76,32 @@ export default function Product() {
   };
 
   // Fetch related products
-  const { data: relatedProducts, isLoading: relatedLoading } = useQuery({
-    queryKey: ['/api/products', { categoryId: product?.categoryId }],
-    enabled: !!product?.categoryId,
+  const { data: relatedProducts, isLoading: relatedLoading } = useQuery<Product[]>({
+    queryKey: [API_ENDPOINTS.products, { category: product?.category?.slug }],
+    enabled: !!product?.category?.slug,
   });
 
   // Add to cart mutation
   const addToCartMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/cart", {
+      if (!product) throw new Error("Produto não encontrado");
+      return apiRequest("POST", API_ENDPOINTS.cart, {
         productId: product.id,
         quantity: quantity
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.cart] });
       toast({
-        title: "Added to cart",
-        description: `${product.name} has been added to your cart.`,
+        title: "Adicionado ao carrinho",
+        description: `${product?.name} foi adicionado ao seu carrinho.`,
         variant: "default",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: error.message || "Could not add item to cart.",
+        title: "Erro",
+        description: error.message || "Não foi possível adicionar o item ao carrinho.",
         variant: "destructive",
       });
     },
@@ -175,7 +190,7 @@ export default function Product() {
   };
 
   // Check if product is in wishlist
-  const { data: wishlistCheck } = useQuery({
+  const { data: wishlistCheck } = useQuery<WishlistCheck>({
     queryKey: [`/api/wishlist/check/${product?.id}`],
     enabled: isAuthenticated && !!product?.id,
   });
@@ -185,11 +200,13 @@ export default function Product() {
   // Add to wishlist mutation
   const addToWishlistMutation = useMutation({
     mutationFn: async () => {
+      if (!product) throw new Error("Produto não encontrado");
       return apiRequest("POST", "/api/wishlist", {
         productId: product.id
       });
     },
     onSuccess: () => {
+      if (!product) return;
       queryClient.invalidateQueries({ queryKey: [`/api/wishlist/check/${product.id}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
       toast({
@@ -210,6 +227,7 @@ export default function Product() {
   // Remove from wishlist mutation
   const removeFromWishlistMutation = useMutation({
     mutationFn: async () => {
+      if (!product) throw new Error("Produto não encontrado");
       // First get the wishlist item id
       const wishlistResponse = await apiRequest("GET", "/api/wishlist");
       const wishlistItems = await wishlistResponse.json();
@@ -222,6 +240,7 @@ export default function Product() {
       return apiRequest("DELETE", `/api/wishlist/${wishlistItem.id}`);
     },
     onSuccess: () => {
+      if (!product) return;
       queryClient.invalidateQueries({ queryKey: [`/api/wishlist/check/${product.id}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
       toast({
@@ -294,7 +313,7 @@ export default function Product() {
 
   // Calculate discount percentage if there is a compareAtPrice
   const discountPercentage = product.compareAtPrice ?
-    getDiscountPercentage(parseFloat(product.price), parseFloat(product.compareAtPrice)) : 0;
+    getDiscountPercentage(parsePrice(product.price), parsePrice(product.compareAtPrice)) : 0;
 
   return (
     <>
@@ -303,8 +322,12 @@ export default function Product() {
         <div className="flex items-center text-sm text-gray-500">
           <a href="/" className="hover:text-primary">Home</a>
           <span className="mx-2">/</span>
-          <a href={`/category/${product.category.slug}`} className="hover:text-primary">{product.category.name}</a>
-          <span className="mx-2">/</span>
+          {product.category && (
+            <>
+              <a href={`/category/${product.category.slug}`} className="hover:text-primary">{product.category.name}</a>
+              <span className="mx-2">/</span>
+            </>
+          )}
           <span className="text-gray-700">{product.name}</span>
         </div>
       </div>
@@ -335,18 +358,20 @@ export default function Product() {
         {/* Product Details */}
         <div>
           <div className="mb-4">
-            <span className="text-gray-500">{product.category.name}</span>
+            {product.category && (
+              <span className="text-gray-500">{product.category.name}</span>
+            )}
             <h1 className="text-3xl font-bold mt-1 font-heading">{product.name}</h1>
 
             <div className="flex items-center mt-2 mb-4">
-              <StarRating rating={parseFloat(product.rating)} count={product.reviewCount} />
+              <StarRating rating={parseRating(product.rating)} count={product.reviewCount || 0} />
             </div>
 
             <div className="flex items-center mb-6">
-              <span className="text-2xl font-bold mr-3">{formatCurrency(parseFloat(product.price))}</span>
+              <span className="text-2xl font-bold mr-3">{formatCurrency(parsePrice(product.price))}</span>
               {product.compareAtPrice && (
                 <>
-                  <span className="text-gray-500 line-through">{formatCurrency(parseFloat(product.compareAtPrice))}</span>
+                  <span className="text-gray-500 line-through">{formatCurrency(parsePrice(product.compareAtPrice))}</span>
                   <span className="ml-3 bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">{discountPercentage}% OFF</span>
                 </>
               )}
@@ -558,11 +583,11 @@ export default function Product() {
                 <div className="md:w-1/3">
                   <div className="bg-gray-50 p-5 rounded-lg">
                     <div className="text-center mb-4">
-                      <div className="text-5xl font-bold text-gray-800">{product.rating}</div>
+                      <div className="text-5xl font-bold text-gray-800">{parseRating(product.rating)}</div>
                       <div className="flex justify-center my-2">
-                        <StarRating rating={parseFloat(product.rating)} />
+                        <StarRating rating={parseRating(product.rating)} />
                       </div>
-                      <div className="text-gray-500">Baseado em {product.reviewCount} avaliações</div>
+                      <div className="text-gray-500">Baseado em {product.reviewCount || 0} avaliações</div>
                     </div>
 
                     <div className="space-y-2">
@@ -629,7 +654,7 @@ export default function Product() {
 
                 <div className="md:w-2/3">
                   <div className="space-y-6">
-                    {product.reviewCount > 0 ? (
+                    {(product.reviewCount || 0) > 0 ? (
                       // Here would be the actual reviews from the API
                       // For now showing sample reviews
                       <>
@@ -674,7 +699,7 @@ export default function Product() {
                     )}
                   </div>
 
-                  {product.reviewCount > 3 && (
+                  {(product.reviewCount || 0) > 3 && (
                     <div className="mt-6 flex justify-center">
                       <Button variant="link" className="text-primary hover:text-pink-700 flex items-center">
                         Carregar Mais Avaliações
@@ -710,22 +735,22 @@ export default function Product() {
           ) : relatedProducts && relatedProducts.length > 0 ? (
             // Filter out the current product and take max 4 related products
             relatedProducts
-              .filter((p: any) => p.id !== product.id)
+              .filter((p: Product) => p.id !== product.id)
               .slice(0, 4)
-              .map((relatedProduct: any) => (
+              .map((relatedProduct: Product) => (
                 <ProductCard
                   key={relatedProduct.id}
                   id={relatedProduct.id}
                   name={relatedProduct.name}
-                  slug={relatedProduct.slug}
-                  price={relatedProduct.price}
-                  compareAtPrice={relatedProduct.compareAtPrice}
-                  categoryName={relatedProduct.category.name}
-                  rating={relatedProduct.rating}
-                  reviewCount={relatedProduct.reviewCount}
-                  mainImage={relatedProduct.images[0]}
-                  bestSeller={relatedProduct.bestSeller}
-                  newArrival={relatedProduct.newArrival}
+                  slug={relatedProduct.slug || ''}
+                  price={relatedProduct.price.toString()}
+                  compareAtPrice={relatedProduct.compareAtPrice?.toString()}
+                  categoryName={relatedProduct.category?.name || ''}
+                  rating={relatedProduct.rating?.toString() || '0'}
+                  reviewCount={relatedProduct.reviewCount || 0}
+                  mainImage={relatedProduct.images?.[0] || ''}
+                  bestSeller={relatedProduct.bestSeller || false}
+                  newArrival={relatedProduct.newArrival || false}
                 />
               ))
           ) : (
