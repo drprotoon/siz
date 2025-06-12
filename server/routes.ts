@@ -941,7 +941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products", validateQuery(validationSchemas.search), async (req, res) => {
     try {
       console.log("Fetching products...");
-      const options: { categoryId?: number, featured?: boolean, visible?: boolean } = {};
+      const options: { categoryId?: number, featured?: boolean, visible?: boolean, bestSeller?: boolean, newArrival?: boolean } = {};
 
       if (req.query.category) {
         console.log("Filtering by category:", req.query.category);
@@ -954,6 +954,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.query.featured) {
         console.log("Filtering by featured:", req.query.featured);
         options.featured = req.query.featured === "true";
+      }
+
+      if (req.query.bestSeller) {
+        console.log("Filtering by bestSeller:", req.query.bestSeller);
+        options.bestSeller = req.query.bestSeller === "true";
+      }
+
+      if (req.query.new_arrival) {
+        console.log("Filtering by new_arrival:", req.query.new_arrival);
+        options.newArrival = req.query.new_arrival === "true";
       }
 
       // Only admins can see hidden products

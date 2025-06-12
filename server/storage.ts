@@ -65,8 +65,8 @@ export interface IStorage {
   deleteCategory(id: number): Promise<boolean>;
 
   // Products
-  getProducts(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<Product[]>;
-  getProductsWithCategory(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<ProductWithCategory[]>;
+  getProducts(options?: { categoryId?: number, featured?: boolean, visible?: boolean, bestSeller?: boolean, newArrival?: boolean }): Promise<Product[]>;
+  getProductsWithCategory(options?: { categoryId?: number, featured?: boolean, visible?: boolean, bestSeller?: boolean, newArrival?: boolean }): Promise<ProductWithCategory[]>;
   getProduct(id: number): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
   getProductWithCategory(id: number): Promise<ProductWithCategory | undefined>;
@@ -503,7 +503,7 @@ export class MemStorage implements IStorage {
   }
 
   // Products
-  async getProducts(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<Product[]> {
+  async getProducts(options?: { categoryId?: number, featured?: boolean, visible?: boolean, bestSeller?: boolean, newArrival?: boolean }): Promise<Product[]> {
     let products = Array.from(this.products.values());
 
     if (options) {
@@ -516,12 +516,18 @@ export class MemStorage implements IStorage {
       if (options.visible !== undefined) {
         products = products.filter(p => p.visible === options.visible);
       }
+      if (options.bestSeller !== undefined) {
+        products = products.filter(p => p.bestSeller === options.bestSeller);
+      }
+      if (options.newArrival !== undefined) {
+        products = products.filter(p => p.newArrival === options.newArrival);
+      }
     }
 
     return products;
   }
 
-  async getProductsWithCategory(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<ProductWithCategory[]> {
+  async getProductsWithCategory(options?: { categoryId?: number, featured?: boolean, visible?: boolean, bestSeller?: boolean, newArrival?: boolean }): Promise<ProductWithCategory[]> {
     const products = await this.getProducts(options);
     return Promise.all(
       products.map(async (product) => {
@@ -1110,7 +1116,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // PRODUCTS
-  async getProducts(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<Product[]> {
+  async getProducts(options?: { categoryId?: number, featured?: boolean, visible?: boolean, bestSeller?: boolean, newArrival?: boolean }): Promise<Product[]> {
     let query = db.select().from(products);
 
     if (options) {
@@ -1128,6 +1134,14 @@ export class DatabaseStorage implements IStorage {
         conditions.push(eq(products.visible, options.visible));
       }
 
+      if (options.bestSeller !== undefined) {
+        conditions.push(eq(products.bestSeller, options.bestSeller));
+      }
+
+      if (options.newArrival !== undefined) {
+        conditions.push(eq(products.newArrival, options.newArrival));
+      }
+
       if (conditions.length > 0) {
         query = query.where(and(...conditions)) as any;
       }
@@ -1136,7 +1150,7 @@ export class DatabaseStorage implements IStorage {
     return query as any;
   }
 
-  async getProductsWithCategory(options?: { categoryId?: number, featured?: boolean, visible?: boolean }): Promise<ProductWithCategory[]> {
+  async getProductsWithCategory(options?: { categoryId?: number, featured?: boolean, visible?: boolean, bestSeller?: boolean, newArrival?: boolean }): Promise<ProductWithCategory[]> {
     const productsData = await this.getProducts(options);
     const results: ProductWithCategory[] = [];
 

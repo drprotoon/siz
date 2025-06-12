@@ -13,6 +13,8 @@ import TrackOrder from "@/pages/TrackOrder";
 import Profile from "@/pages/Profile";
 import Checkout from "@/pages/Checkout";
 import OrderConfirmation from "@/pages/OrderConfirmation";
+import BestSellers from "@/pages/BestSellers";
+import NewArrivals from "@/pages/NewArrivals";
 import AdminDashboard from "@/pages/Admin/Dashboard";
 import AdminProducts from "@/pages/Admin/Products";
 import AdminOrders from "@/pages/Admin/Orders";
@@ -68,6 +70,8 @@ function Routes() {
       <Route path="/" component={Home} />
       <Route path="/product/:slug" component={Product} />
       <Route path="/category/:slug" component={Category} />
+      <Route path="/best-sellers" component={BestSellers} />
+      <Route path="/new-arrivals" component={NewArrivals} />
       <Route path="/cart" component={Cart} />
       <Route path="/wishlist">
         {isAuthenticated ? <Wishlist /> : <RedirectToLogin />}

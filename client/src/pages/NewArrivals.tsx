@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProductCard from "@/components/ProductCard";
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/pagination";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useNewArrivals } from "@/hooks/useProducts";
 
 export default function new_arrivals() {
   const [sortBy, setSortBy] = useState("newest");
@@ -22,16 +22,7 @@ export default function new_arrivals() {
   const { theme } = useTheme();
 
   // Fetch products with new_arrival flag
-  const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ["/api/products", { new_arrival: true }],
-    queryFn: async () => {
-      const response = await fetch('/api/products?new_arrival=true');
-      if (!response.ok) {
-        throw new Error('Failed to fetch new arrivals');
-      }
-      return response.json();
-    }
-  });
+  const { data: products, isLoading: productsLoading } = useNewArrivals();
 
   // Sort products based on selected option
   const sortProducts = (products: any[]) => {

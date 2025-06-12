@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProductCard from "@/components/ProductCard";
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/pagination";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useBestSellers } from "@/hooks/useProducts";
 
 export default function best_sellers() {
   const [sortBy, setSortBy] = useState("newest");
@@ -22,9 +22,7 @@ export default function best_sellers() {
   const { theme } = useTheme();
 
   // Fetch products with best_seller flag
-  const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ["/api/products", { best_seller: true }],
-  });
+  const { data: products, isLoading: productsLoading } = useBestSellers();
 
   // Sort products based on selected option
   const sortProducts = (products: any[]) => {
