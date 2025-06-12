@@ -24,6 +24,13 @@ export default function new_arrivals() {
   // Fetch products with new_arrival flag
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["/api/products", { new_arrival: true }],
+    queryFn: async () => {
+      const response = await fetch('/api/products?new_arrival=true');
+      if (!response.ok) {
+        throw new Error('Failed to fetch new arrivals');
+      }
+      return response.json();
+    }
   });
 
   // Sort products based on selected option

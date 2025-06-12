@@ -97,14 +97,14 @@ export const products = pgTable("products", {
   categoryId: integer("category_id").notNull(),
   images: getArrayType(), // Usa a função auxiliar para determinar o tipo correto
   ingredients: text("ingredients"),
-  howtouse: text("howtouse"), // Usar a coluna que existe
+  howtouse: text("how_to_use"), // Usar a coluna que existe
   visible: boolean("visible").notNull().default(true),
   featured: boolean("featured").default(false),
   newArrival: boolean("new_arrival").default(false),
   bestSeller: boolean("best_seller").default(false),
   rating: numeric("rating", { precision: 3, scale: 1 }).default(sql`0`),
-  reviewCount: integer("review_count").default(sql`0`), // Usar a coluna que existe
-  createdAt: timestamp("createdat").defaultNow()
+  reviewCount: integer("review_count").default(sql`0`), // Usar a coluna que existe no banco
+  createdAt: timestamp("created_at").defaultNow()
 });
 
 export const insertProductSchema = z.object({

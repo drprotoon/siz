@@ -39,7 +39,7 @@ const productsService = {
 
   getBySlug: async (slug: string): Promise<Product | null> => {
     try {
-      const response = await apiRequest('GET', `/api/products/slug/${slug}`);
+      const response = await apiRequest('GET', `/api/products/${slug}`);
       const data = await response.json();
       return data || null;
     } catch (error) {
@@ -67,7 +67,7 @@ const productsService = {
   },
 
   getNewArrivals: async (): Promise<Product[]> => {
-    const response = await apiRequest('GET', '/api/products?newArrival=true');
+    const response = await apiRequest('GET', '/api/products?new_arrival=true');
     const data = await response.json();
     return Array.isArray(data) ? data : [];
   }
@@ -94,7 +94,7 @@ const categoriesService = {
 
   getBySlug: async (slug: string): Promise<Category | null> => {
     try {
-      const response = await apiRequest('GET', `/api/categories/slug/${slug}`);
+      const response = await apiRequest('GET', `/api/categories/${slug}`);
       const data = await response.json();
       return data || null;
     } catch (error) {

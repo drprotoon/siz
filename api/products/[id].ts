@@ -22,9 +22,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { featured, bestSeller, category, visible = 'true', new_arrival } = req.query;
+    const { id } = req.query;
 
-    // Build query
+    // Check if id is a number or slug
+    const isNumeric = /^\d+$/.test(id as string);
+    
+    if (!id) {
+      return res.status(400).json({ message: 'Product ID or slug is required' });
+    }
+
     let query = supabase
       .from('products')
       .select(`
@@ -47,54 +53,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         best_seller,
         rating,
         review_count,
-        created_at
-      `);
+        created_at,
+        categories (
+          id,
+          name,
+          slug
+        )
+      `)
+      .eq('visible', true);
 
-    // Apply filters
-    if (featured === 'true') {
-      query = query.eq('featured', true);
+    // If numeric, search by ID, otherwise by slug
+    if (isNumeric) {
+      query = query.eq('id', parseInt(id as string));
+    } else {
+      query = query.eq('slug', id as string);
     }
 
-    if (bestSeller === 'true') {
-      query = query.eq('best_seller', true);
-    }
+    const { data: product, error } = await query.single();
 
-    if (new_arrival === 'true') {
-      query = query.eq('new_arrival', true);
-    }
-
-    if (category) {
-      // Get category by slug first
-      const { data: categoryData, error: categoryError } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('slug', category)
-        .single();
-
-      if (categoryError || !categoryData) {
-        return res.json([]);
-      }
-
-      query = query.eq('category_id', categoryData.id);
-    }
-
-    // Only show visible products by default
-    if (visible === 'true') {
-      query = query.eq('visible', true);
-    }
-
-    // Order by created_at desc
-    query = query.order('created_at', { ascending: false });
-
-    const { data: products, error } = await query;
-
-    if (error) {
-      console.error('Error fetching products:', error);
-      return res.status(500).json({ message: 'Error fetching products' });
+    if (error || !product) {
+      return res.status(404).json({ message: 'Product not found' });
     }
 
     // Transform the data to match expected format
-    const transformedProducts = products?.map(product => ({
+    const transformedProduct = {
       ...product,
       images: Array.isArray(product.images) ? product.images :
                product.images ? [product.images] : [],
@@ -102,13 +84,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       stock_quantity: product.quantity,
       created_at: product.created_at,
       reviewCount: product.review_count,
-      how_to_use: product.how_to_use
-    })) || [];
+      how_to_use: product.how_to_use,
+      category: product.categories,
+      categoryId: product.category_id
+    };
 
-    res.json(transformedProducts);
+    res.json(transformedProduct);
 
   } catch (error) {
-    console.error('Error in /api/products:', error);
+    console.error('Error in /api/products/[id]:', error);
     res.status(500).json({ 
       message: 'Internal server error',
       error: error instanceof Error ? error.message : String(error)
